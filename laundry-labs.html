@@ -197,8 +197,7 @@
     <strong>How this form works:</strong> The bot pulls all the metrics (sales, ACoS, TACoS, conversions, organic, PPC spend, etc.) automatically. You only need to fill in the things only you know — what you did, what's blocking, what's next. Should take about 5 minutes.
   </div>
 
-  <form id="lionForm" name="lion-report" method="POST" data-netlify="true" netlify-honeypot="bot-field" autocomplete="off">
-    <input type="hidden" name="form-name" value="lion-report">
+  <form id="lionForm" name="lion-report" autocomplete="off">
     <input type="hidden" name="client" value="Laundry Labs">
     <p style="display:none"><label>Don't fill this out if you're human: <input name="bot-field" /></label></p>
 
@@ -387,7 +386,8 @@
   <div id="success">
     <div class="checkmark">✓</div>
     <h2>Submitted</h2>
-    <p>The bot will pull this week's data, merge it with your inputs, and post the full LION report to the ClickUp task within a few minutes.</p>
+    <p>A new ClickUp task was created for review. The bot will append this week's data automatically when wired up.</p>
+    <p style="margin-top: 16px;"><a id="taskLink" href="#" target="_blank" style="color: var(--accent-light); text-decoration: underline;">View the task in ClickUp →</a></p>
   </div>
 </div>
 
@@ -403,7 +403,6 @@
     if (anyIssueChecked) {
       issueDetailsField.classList.add('show');
       issueDetailsTextarea.required = true;
-      // If any specific issue is checked, uncheck "No major issues"
       if (issueNone.checked) issueNone.checked = false;
     } else {
       issueDetailsField.classList.remove('show');
@@ -414,7 +413,6 @@
   issueChecks.forEach(c => c.addEventListener('change', refreshIssueDetailsVisibility));
   issueNone.addEventListener('change', () => {
     if (issueNone.checked) {
-      // Uncheck all specific issue boxes when "No major issues" is checked
       issueChecks.forEach(c => c.checked = false);
       refreshIssueDetailsVisibility();
     }
@@ -423,10 +421,57 @@
   // Default week_ending to last Sunday
   const today = new Date();
   const day = today.getDay();
-  const diffToSunday = day === 0 ? 7 : day; // if today is Sunday, last Sunday was 7 days ago
+  const diffToSunday = day === 0 ? 7 : day;
   const lastSunday = new Date(today);
   lastSunday.setDate(today.getDate() - diffToSunday);
   document.querySelector('input[name="week_ending"]').value = lastSunday.toISOString().slice(0, 10);
+
+  // Submit handler: POST to Netlify Function, then show success
+  const form = document.getElementById('lionForm');
+  const errorBox = document.getElementById('error');
+  const successBox = document.getElementById('success');
+  const submitBtn = document.getElementById('submitBtn');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorBox.style.display = 'none';
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
+
+    // Collect form data; treat unchecked checkboxes as missing
+    const formData = new FormData(form);
+    const payload = {};
+    for (const [k, v] of formData.entries()) {
+      if (payload[k] !== undefined) {
+        if (Array.isArray(payload[k])) payload[k].push(v);
+        else payload[k] = [payload[k], v];
+      } else {
+        payload[k] = v;
+      }
+    }
+
+    try {
+      const resp = await fetch('/.netlify/functions/submit-lion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = await resp.json();
+      if (!resp.ok || !result.success) {
+        throw new Error(result.error || 'Submission failed');
+      }
+      form.style.display = 'none';
+      successBox.style.display = 'block';
+      if (result.taskUrl) {
+        document.getElementById('taskLink').href = result.taskUrl;
+      }
+    } catch (err) {
+      errorBox.textContent = 'Error: ' + err.message + '. Your data was NOT saved. Please try again or report to Hymie.';
+      errorBox.style.display = 'block';
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Submit LION Report';
+    }
+  });
 </script>
 </body>
 </html>
