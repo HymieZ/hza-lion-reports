@@ -1,0 +1,505 @@
+#!/usr/bin/env python3
+"""
+Generate Weekly LION Report HTML forms for all PPC clients.
+Each file is hardcoded to one client.
+
+The form captures the HUMAN inputs (optimizations done, issues, plan, expected outcome).
+The data (sales, ACoS, TACoS, etc.) will be auto-pulled by a backend bot from Amazon Ads API + SP-API.
+
+v1 — May 19, 2026
+"""
+
+import os, re
+
+# Active PPC clients (from ClickUp Client Directory + LION report task list)
+CLIENTS = [
+    "AllTech 365",
+    "AP Deauville Amazon",
+    "Balancing Act",
+    "Eat2Explore",
+    "Footwear King",
+    "Global Wholesale Amazon",
+    "Global Wholesale Walmart",
+    "GrubTerra",
+    "IJoy Electronics",
+    "Josmo Shoes",
+    "Kaffy",
+    "Laundry Labs",
+    "Louisiana Lumber",
+    "Luxury Collection",
+    "Marknox Global",
+    "NSA Lighting",
+    "OX Plastics Amazon",
+    "OX Plastic Walmart",
+    "Personalized Passion",
+    "Regines Super Store",
+    "Rolling Pin",
+    "Rubber Bond",
+    "Savor Goods",
+    "Savor Goods Walmart",
+    "Shalam Group",
+    "Sophie Select",
+    "Spirit Linen",
+    "Superior Products",
+    "Wholesale Apparel",
+    "Wild Bobby",
+    "Zakys Brand LLC",
+]
+
+
+def slug(name):
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
+TEMPLATE = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{client} — Weekly LION Report</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+  :root {{
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface-2: #232733;
+    --border: #2d3140;
+    --text: #e8eaed;
+    --text-muted: #8b8fa3;
+    --accent: #c97f3a;
+    --accent-light: #e3a366;
+    --success: #34d399;
+    --danger: #d94f4f;
+  }}
+  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+  body {{
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px 16px;
+  }}
+  .container {{ max-width: 720px; margin: 0 auto; }}
+  .header {{
+    text-align: center;
+    margin-bottom: 32px;
+    padding: 32px 20px;
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+  }}
+  .badge {{
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 6px 16px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }}
+  h1 {{
+    font-family: 'DM Serif Display', serif;
+    font-size: 28px;
+    margin-bottom: 4px;
+  }}
+  .header p {{ color: var(--text-muted); font-size: 14px; }}
+  .info-note {{
+    background: rgba(201, 127, 58, 0.08);
+    border: 1px solid rgba(201, 127, 58, 0.3);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }}
+  .info-note strong {{ color: var(--accent-light); }}
+  .section {{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }}
+  .section-title {{
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--accent-light);
+    margin-bottom: 6px;
+  }}
+  .section-subtitle {{
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }}
+  .field {{ margin-bottom: 20px; }}
+  .field:last-child {{ margin-bottom: 0; }}
+  .field label {{
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }}
+  .hint {{ font-weight: 400; color: var(--text-muted); font-size: 12px; }}
+  input[type="text"], input[type="number"], input[type="date"], textarea, select {{
+    width: 100%;
+    padding: 12px 16px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 15px;
+    transition: border-color 0.2s;
+  }}
+  input:focus, textarea:focus, select:focus {{
+    outline: none;
+    border-color: var(--accent);
+  }}
+  textarea {{ min-height: 100px; resize: vertical; }}
+  select {{ cursor: pointer; }}
+  .row-2 {{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }}
+  .checkbox-group {{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }}
+  .checkbox-group label {{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+  }}
+  .checkbox-group label:has(input:checked) {{
+    border-color: var(--accent);
+    background: rgba(201, 127, 58, 0.15);
+  }}
+  .checkbox-group input {{ accent-color: var(--accent); cursor: pointer; }}
+  .submit-btn {{
+    width: 100%;
+    padding: 16px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    margin-top: 8px;
+  }}
+  .submit-btn:hover {{ opacity: 0.9; }}
+  .submit-btn:disabled {{ opacity: 0.5; cursor: not-allowed; }}
+  #success {{
+    display: none;
+    text-align: center;
+    padding: 60px 20px;
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+  }}
+  #success .checkmark {{
+    width: 64px; height: 64px; background: var(--success);
+    border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; margin: 0 auto 20px; font-size: 28px;
+  }}
+  #success h2 {{ font-family: 'DM Serif Display', serif; font-size: 24px; margin-bottom: 8px; }}
+  #success p {{ color: var(--text-muted); }}
+  .error-message {{
+    display: none; background: rgba(217, 79, 79, 0.1);
+    border: 1px solid var(--danger); border-radius: 8px;
+    padding: 16px; margin-bottom: 20px; color: var(--danger);
+    font-size: 14px; text-align: center;
+  }}
+  .required {{ color: var(--danger); }}
+  .conditional-field {{ display: none; }}
+  .conditional-field.show {{ display: block; }}
+
+  @media (max-width: 600px) {{
+    .row-2 {{ grid-template-columns: 1fr; }}
+  }}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="badge">Weekly LION Report</div>
+    <h1>{client}</h1>
+    <p>Strategic input from PPC. Numbers are auto-pulled — you focus on the why and the plan.</p>
+  </div>
+
+  <div id="error" class="error-message"></div>
+
+  <div class="info-note">
+    <strong>How this form works:</strong> The bot pulls all the metrics (sales, ACoS, TACoS, conversions, organic, PPC spend, etc.) automatically. You only need to fill in the things only you know — what you did, what's blocking, what's next. Should take about 5 minutes.
+  </div>
+
+  <form id="lionForm" name="lion-report" method="POST" data-netlify="true" netlify-honeypot="bot-field" autocomplete="off">
+    <input type="hidden" name="form-name" value="lion-report">
+    <input type="hidden" name="client" value="{client}">
+    <p style="display:none"><label>Don't fill this out if you're human: <input name="bot-field" /></label></p>
+
+    <!-- ============= SECTION 1: SUBMISSION INFO ============= -->
+    <div class="section">
+      <div class="section-title">Submission Info</div>
+      <div class="row-2">
+        <div class="field">
+          <label>Your name <span class="required">*</span></label>
+          <select name="ppc_person" required>
+            <option value="">Select your name</option>
+            <option>Asad Younas</option>
+            <option>Mubeen Khan</option>
+            <option>Jahan</option>
+            <option>Zeeshan Majeed</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Week ending <span class="required">*</span></label>
+          <input type="date" name="week_ending" required>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============= SECTION 2: THIS WEEK'S STORY ============= -->
+    <div class="section">
+      <div class="section-title">1. This Week's Story</div>
+      <div class="section-subtitle">In 2-3 sentences, the headline of the week. The bot has the numbers — this is the "why" behind them.</div>
+      <div class="field">
+        <label>Week-over-week summary <span class="required">*</span></label>
+        <textarea name="week_summary" required placeholder="Example: Sales dipped slightly but profit grew because we pulled back from underperforming campaigns. Stock issue on Neckband Bluetooth forced us to shift ad budget to Hose Clamps and Tool Bag, which kept revenue stable. ACoS came down from 41% to 32% as we cut bleeders."></textarea>
+      </div>
+      <div class="field">
+        <label>Top performing products this week <span class="required">*</span> <span class="hint">— comma-separated</span></label>
+        <input type="text" name="top_performers" required placeholder="e.g., Hose Clamps, Neckband Bluetooth Speaker, Baby Car Mirror">
+      </div>
+      <div class="field">
+        <label>Underperforming products to flag <span class="hint">— optional, comma-separated</span></label>
+        <input type="text" name="underperformers" placeholder="e.g., Tire Inflator (3.8 rating), Ridel Bag (lost return badge)">
+      </div>
+    </div>
+
+    <!-- ============= SECTION 3: WHAT WE DID ============= -->
+    <div class="section">
+      <div class="section-title">2. What We Did This Week</div>
+      <div class="section-subtitle">Check everything that applies. Be honest — if nothing was done, leave them unchecked.</div>
+      <div class="field">
+        <label>Optimizations completed</label>
+        <div class="checkbox-group">
+          <label><input type="checkbox" name="opt_paused" value="Yes"> Paused low-performing campaigns / keywords</label>
+          <label><input type="checkbox" name="opt_launched" value="Yes"> Launched new campaigns</label>
+          <label><input type="checkbox" name="opt_bids_up" value="Yes"> Increased bids on top performers</label>
+          <label><input type="checkbox" name="opt_bids_down" value="Yes"> Decreased bids on poor performers</label>
+          <label><input type="checkbox" name="opt_negatives" value="Yes"> Added negative keywords</label>
+          <label><input type="checkbox" name="opt_harvested" value="Yes"> Harvested search terms (SQP / STR)</label>
+          <label><input type="checkbox" name="opt_coupons" value="Yes"> Applied coupons / Lightning Deals / Best Deals</label>
+          <label><input type="checkbox" name="opt_btps" value="Yes"> Launched Brand-tailored Promotions (BTPs)</label>
+          <label><input type="checkbox" name="opt_restructured" value="Yes"> Restructured campaigns</label>
+          <label><input type="checkbox" name="opt_listing" value="Yes"> Listing changes (images / title / A+ / bullets)</label>
+          <label><input type="checkbox" name="opt_price" value="Yes"> Price changes</label>
+          <label><input type="checkbox" name="opt_vine" value="Yes"> Enrolled / managed Vine reviews</label>
+        </div>
+      </div>
+      <div class="field">
+        <label>Specific actions worth flagging <span class="hint">— optional</span></label>
+        <textarea name="specific_actions" placeholder="Example: Paused 12 search terms on Hose Clamps Auto (0 sales / $84 spent). Increased budget on Neckband Exact from $30 to $50/day. Launched new BTP at 20% off on Pajamas after the 10% version underperformed."></textarea>
+      </div>
+    </div>
+
+    <!-- ============= SECTION 4: ISSUES ============= -->
+    <div class="section">
+      <div class="section-title">3. Issues Affecting Performance</div>
+      <div class="section-subtitle">What's getting in the way? Check all that apply this week.</div>
+      <div class="field">
+        <label>Active issues</label>
+        <div class="checkbox-group">
+          <label><input type="checkbox" name="issue_stock" value="Yes" class="issue-check"> Stock issue / Low inventory / OOS</label>
+          <label><input type="checkbox" name="issue_delivery" value="Yes" class="issue-check"> Late delivery (Amazon shipping window)</label>
+          <label><input type="checkbox" name="issue_rating" value="Yes" class="issue-check"> Rating dropped / Low rating</label>
+          <label><input type="checkbox" name="issue_acos" value="Yes" class="issue-check"> High ACoS that won't stabilize</label>
+          <label><input type="checkbox" name="issue_cvr" value="Yes" class="issue-check"> Conversion rate dropping</label>
+          <label><input type="checkbox" name="issue_returns" value="Yes" class="issue-check"> Returns / Refund issue</label>
+          <label><input type="checkbox" name="issue_seasonal" value="Yes" class="issue-check"> Seasonal slowdown</label>
+          <label><input type="checkbox" name="issue_pricing" value="Yes" class="issue-check"> Pricing affecting sales</label>
+          <label><input type="checkbox" name="issue_listing" value="Yes" class="issue-check"> Listing suppression / Account health flag</label>
+          <label><input type="checkbox" name="issue_competitor" value="Yes" class="issue-check"> Competitor activity (price drop, new entrant)</label>
+          <label><input type="checkbox" name="issue_vine" value="Yes" class="issue-check"> Vine reviews still incoming / not enough reviews</label>
+          <label><input type="checkbox" name="issue_launch" value="Yes" class="issue-check"> New launch underperforming</label>
+          <label><input type="checkbox" name="issue_client" value="Yes" class="issue-check"> Client concern / change in direction</label>
+          <label><input type="checkbox" name="issue_none" value="Yes" id="issue_none"> No major issues</label>
+        </div>
+      </div>
+      <div class="field conditional-field" id="issue_details_field">
+        <label>Issue details <span class="required">*</span> <span class="hint">— required when an issue is checked</span></label>
+        <textarea name="issue_details" placeholder="For each issue you checked, briefly describe: which SKUs / what's happening / what you're doing about it. Example: 'Stock issue — Neckband has 18 days of supply left, paused 3 of 5 campaigns to slow burn. Late delivery — storm in NY affecting CVR on 99 Walks variations.'"></textarea>
+      </div>
+    </div>
+
+    <!-- ============= SECTION 5: INVENTORY ============= -->
+    <div class="section">
+      <div class="section-title">4. Inventory Status</div>
+      <div class="section-subtitle">Inventory drives almost every PPC decision. Be precise.</div>
+      <div class="field">
+        <label>Overall inventory status <span class="required">*</span></label>
+        <select name="inventory_status" required>
+          <option value="">Select status</option>
+          <option>Healthy across all SKUs</option>
+          <option>Tight on some SKUs</option>
+          <option>Critical low on key SKUs</option>
+          <option>OOS on key SKUs</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>SKUs with inventory concern <span class="hint">— optional, comma-separated</span></label>
+        <input type="text" name="inventory_skus" placeholder="e.g., Neckband (18 days), Hose Clamps (32 days), Aluminum Foil (under 40 days)">
+      </div>
+      <div class="field">
+        <label>Restock ETA on critical SKUs <span class="hint">— optional</span></label>
+        <input type="text" name="restock_eta" placeholder="e.g., Foil shipment expected in 50-60 days, Neckband 500 units in transit">
+      </div>
+    </div>
+
+    <!-- ============= SECTION 6: CLIENT CONTEXT ============= -->
+    <div class="section">
+      <div class="section-title">5. Client Context</div>
+      <div class="section-subtitle">Anything the client said or asked that affects strategy.</div>
+      <div class="field">
+        <label>Client comments / requests / context this week <span class="hint">— optional but valuable</span></label>
+        <textarea name="client_context" placeholder="Example: Client asked to hold spend steady through Q3 launch. / Client mentioned competitor X dropped prices 20%. / Client requested we push the new SKU more aggressively. / No client interaction this week."></textarea>
+      </div>
+    </div>
+
+    <!-- ============= SECTION 7: NEXT WEEK PLAN ============= -->
+    <div class="section">
+      <div class="section-title">6. Plan of Action for Next Week</div>
+      <div class="section-subtitle">The 1-3 most important things you're going to do.</div>
+      <div class="field">
+        <label>Priority 1 <span class="required">*</span></label>
+        <input type="text" name="priority_1" required placeholder="e.g., Push Hose Clamps with 10% coupon + increased budget to drive Q2 momentum">
+      </div>
+      <div class="field">
+        <label>Priority 2 <span class="hint">— optional</span></label>
+        <input type="text" name="priority_2" placeholder="e.g., Restructure Neckband campaigns to focus on top 5 converting search terms">
+      </div>
+      <div class="field">
+        <label>Priority 3 <span class="hint">— optional</span></label>
+        <input type="text" name="priority_3" placeholder="e.g., Launch graduation campaign for Baby Car Mirror after 30 days of stable data">
+      </div>
+      <div class="field">
+        <label>ASINs / SKUs you're focused on next week <span class="hint">— optional, comma-separated</span></label>
+        <input type="text" name="focus_asins" placeholder="e.g., B0G8D3Q3FV (Hose Clamps), B0BY9NPYZT (Neckband), B0FX3DFDBX (Baby Car Mirror)">
+      </div>
+      <div class="field">
+        <label>Budget / campaign changes planned <span class="hint">— optional</span></label>
+        <textarea name="budget_plan" placeholder="Example: Shifting $200/week from underperforming Tire Inflator to top-performing Hose Clamps. Pausing all spend on Ridel Bag pending re-strategy. Increasing bids 15% on top 5 converting search terms across the catalog."></textarea>
+      </div>
+      <div class="field">
+        <label>New launches planned next week <span class="hint">— optional</span></label>
+        <input type="text" name="launches_planned" placeholder="e.g., New BTP for Apparel SKUs, launching Brand Defense campaign on top 5 ASINs">
+      </div>
+    </div>
+
+    <!-- ============= SECTION 8: EXPECTED OUTCOME ============= -->
+    <div class="section">
+      <div class="section-title">7. Expected Outcome</div>
+      <div class="section-subtitle">What should improve? What are you watching?</div>
+      <div class="field">
+        <label>Expected outcomes next week <span class="required">*</span></label>
+        <textarea name="expected_outcomes" required placeholder="Example bullets:&#10;- ACoS should drop 3-5 points as we cut bleeders&#10;- Hose Clamps revenue should increase $400-600 from the coupon push&#10;- Watching Tire Inflator rating — if it stays at 3.8, we may pause entirely&#10;- Should see organic order growth as PPC efficiency improves"></textarea>
+      </div>
+    </div>
+
+    <!-- ============= SECTION 9: CATCH-ALL ============= -->
+    <div class="section">
+      <div class="section-title">8. Anything Else</div>
+      <div class="field">
+        <label>Anything else worth flagging <span class="hint">— optional</span></label>
+        <textarea name="anything_else" placeholder="Anything that doesn't fit the boxes above. Quick wins, weird patterns, client gossip, things to investigate — whatever. Leave blank if nothing."></textarea>
+      </div>
+    </div>
+
+    <button type="submit" class="submit-btn" id="submitBtn">Submit LION Report</button>
+  </form>
+
+  <div id="success">
+    <div class="checkmark">✓</div>
+    <h2>Submitted</h2>
+    <p>The bot will pull this week's data, merge it with your inputs, and post the full LION report to the ClickUp task within a few minutes.</p>
+  </div>
+</div>
+
+<script>
+  // Conditional: show issue details textarea when any issue is checked (except "No major issues")
+  const issueChecks = document.querySelectorAll('.issue-check');
+  const issueNone = document.getElementById('issue_none');
+  const issueDetailsField = document.getElementById('issue_details_field');
+  const issueDetailsTextarea = issueDetailsField.querySelector('textarea');
+
+  function refreshIssueDetailsVisibility() {{
+    const anyIssueChecked = Array.from(issueChecks).some(c => c.checked);
+    if (anyIssueChecked) {{
+      issueDetailsField.classList.add('show');
+      issueDetailsTextarea.required = true;
+      // If any specific issue is checked, uncheck "No major issues"
+      if (issueNone.checked) issueNone.checked = false;
+    }} else {{
+      issueDetailsField.classList.remove('show');
+      issueDetailsTextarea.required = false;
+    }}
+  }}
+
+  issueChecks.forEach(c => c.addEventListener('change', refreshIssueDetailsVisibility));
+  issueNone.addEventListener('change', () => {{
+    if (issueNone.checked) {{
+      // Uncheck all specific issue boxes when "No major issues" is checked
+      issueChecks.forEach(c => c.checked = false);
+      refreshIssueDetailsVisibility();
+    }}
+  }});
+
+  // Default week_ending to last Sunday
+  const today = new Date();
+  const day = today.getDay();
+  const diffToSunday = day === 0 ? 7 : day; // if today is Sunday, last Sunday was 7 days ago
+  const lastSunday = new Date(today);
+  lastSunday.setDate(today.getDate() - diffToSunday);
+  document.querySelector('input[name="week_ending"]').value = lastSunday.toISOString().slice(0, 10);
+</script>
+</body>
+</html>
+"""
+
+
+def generate_html(client_name):
+    return TEMPLATE.format(client=client_name)
+
+
+def slugify_client(name):
+    return slug(name)
+
+
+if __name__ == "__main__":
+    out_dir = os.path.dirname(os.path.abspath(__file__))
+    for client in CLIENTS:
+        filename = f"{slugify_client(client)}.html"
+        filepath = os.path.join(out_dir, filename)
+        with open(filepath, "w") as f:
+            f.write(generate_html(client))
+        print(f"Generated: {filename}")
+    print(f"\nGenerated {len(CLIENTS)} client forms.")
