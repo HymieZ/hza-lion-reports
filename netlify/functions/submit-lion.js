@@ -6,43 +6,50 @@
 //   CLICKUP_TOKEN  - personal API token (no Bearer prefix)
 
 const CLICKUP_TOKEN = process.env.CLICKUP_TOKEN;
-const CLICKUP_API = "https://api.clickup.com/api/v2";
+const CLICKUP_API_V2 = "https://api.clickup.com/api/v2";
+const CLICKUP_API_V3 = "https://api.clickup.com/api/v3";
+const WORKSPACE_ID = "9017107139";
 const HYMIE_USER_ID = 43731147;
 
-// Per-client PPC list IDs (where LION review tasks land).
-// Source: ClickUp Clients space, per-client PPC list. Verified May 19, 2026.
-const CLIENT_LIST_MAP = {
-  "AllTech 365": "901710978755",
-  "AP Deauville Amazon": "901710978756",
-  "Balancing Act": "901711292041",
-  "Eat2Explore": "901711033113",
-  "Global Wholesale Amazon": "901710978757",
-  "Global Wholesale Walmart": "901711028001",
-  "IJoy Electronics": "901710978773",
-  "Josmo Shoes": "901713135175",
-  "Kaffy": "901713027762",
-  "Laundry Labs": "901713799832",
-  "Louisiana Lumber": "901710978758",
-  "Luxury Collection": "901710978759",
-  "Marknox Global": "901710978781",
-  "NSA Lighting": "901710978762",
-  "OX Plastics Amazon": "901710978765",
-  "OX Plastic Walmart": "901713829662",
-  "Personalized Passion": "901710978764",
-  "Rolling Pin": "901710978776",
-  "Rubber Bond": "901710978780",
-  "Savor Goods": "901710978766",
-  "Savor Goods Walmart": "901713161824",
-  "Shalam Group": "901710978768",
-  "Sophie Select": "901711543700",
-  "Superior Products": "901713372694",
-  "Wholesale Apparel": "901710978771",
-  "Wild Bobby": "901713292435",
-  "Galaxy by Harvic": "901710978784",
+// Channel where every LION submission posts a notification (Hymie + PMs)
+const LION_NOTIFICATIONS_CHANNEL_ID = "8cqc8p3-162237";
+
+// PM IDs
+const KRISTINA_ID = 89241104;
+const SHERALYN_ID = 95144395;
+
+// Per-client config: PPC list (for task) + PM (for review assignee).
+// Source: ClickUp Client Directory + biweekly SOP PM mapping (Ahsan terminated Apr 27, Asad terminated May 19).
+const CLIENTS = {
+  "AllTech 365":             { list: "901710978755", pm: KRISTINA_ID },
+  "AP Deauville Amazon":     { list: "901710978756", pm: KRISTINA_ID },
+  "Balancing Act":           { list: "901711292041", pm: KRISTINA_ID },
+  "Eat2Explore":             { list: "901711033113", pm: KRISTINA_ID },
+  "Global Wholesale Amazon": { list: "901710978757", pm: SHERALYN_ID },
+  "Global Wholesale Walmart":{ list: "901711028001", pm: SHERALYN_ID },
+  "IJoy Electronics":        { list: "901710978773", pm: SHERALYN_ID },
+  "Josmo Shoes":             { list: "901713135175", pm: KRISTINA_ID },
+  "Kaffy":                   { list: "901713027762", pm: KRISTINA_ID },
+  "Laundry Labs":            { list: "901713799832", pm: KRISTINA_ID },
+  "Louisiana Lumber":        { list: "901710978758", pm: SHERALYN_ID },
+  "Luxury Collection":       { list: "901710978759", pm: SHERALYN_ID },
+  "OX Plastics Amazon":      { list: "901710978765", pm: SHERALYN_ID },
+  "OX Plastic Walmart":      { list: "901713829662", pm: SHERALYN_ID },
+  "Personalized Passion":    { list: "901710978764", pm: KRISTINA_ID },
+  "Rolling Pin":             { list: "901710978776", pm: KRISTINA_ID },
+  "Rubber Bond":             { list: "901710978780", pm: SHERALYN_ID },
+  "Savor Goods":             { list: "901710978766", pm: SHERALYN_ID },
+  "Savor Goods Walmart":     { list: "901713161824", pm: SHERALYN_ID },
+  "Shalam Group":            { list: "901710978768", pm: KRISTINA_ID },
+  "Sophie Select":           { list: "901711543700", pm: KRISTINA_ID },
+  "Superior Products":       { list: "901713372694", pm: KRISTINA_ID },
+  "Wholesale Apparel":       { list: "901710978771", pm: KRISTINA_ID },
+  "Wild Bobby":              { list: "901713292435", pm: KRISTINA_ID },
+  "Galaxy by Harvic":        { list: "901710978784", pm: SHERALYN_ID },
 };
 
-// Fallback list when client not yet mapped (lands in Hymie's queue for routing).
-const FALLBACK_LIST = "901710978755"; // AllTech 365 PPC list — Hymie watches
+// Fallback when client not yet mapped — Hymie sees it and routes
+const FALLBACK = { list: "901710978755", pm: HYMIE_USER_ID };
 
 const OPTIMIZATION_LABELS = {
   opt_paused: "Paused low-performing campaigns / keywords",
@@ -218,15 +225,17 @@ exports.handler = async (event) => {
   const client = data.client || "Unknown Client";
   const weekEnding = data.week_ending || new Date().toISOString().slice(0, 10);
   const ppcPerson = data.ppc_person || "Unknown";
-  const listId = CLIENT_LIST_MAP[client] || FALLBACK_LIST;
+  const cfg = CLIENTS[client] || FALLBACK;
+  const listId = cfg.list;
+  const pmId = cfg.pm;
 
-  const taskName = `LION Report Submission — ${client} — Week ending ${weekEnding}`;
+  const taskName = `LION Report — ${client} — Week ending ${weekEnding}`;
   const description = formatDescription(data);
 
-  // 1. Create the task
+  // 1. Create the review task in the client's PPC list, assigned to the PM
   let task;
   try {
-    const resp = await fetch(`${CLICKUP_API}/list/${listId}/task`, {
+    const resp = await fetch(`${CLICKUP_API_V2}/list/${listId}/task`, {
       method: "POST",
       headers: {
         Authorization: CLICKUP_TOKEN,
@@ -235,7 +244,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         name: taskName,
         description,
-        assignees: [HYMIE_USER_ID],
+        assignees: [pmId],
         priority: 3,
         status: "to do",
       }),
@@ -250,7 +259,7 @@ exports.handler = async (event) => {
 
   // 2. Add raw submission data as a comment (preserve forever)
   try {
-    await fetch(`${CLICKUP_API}/task/${task.id}/comment`, {
+    await fetch(`${CLICKUP_API_V2}/task/${task.id}/comment`, {
       method: "POST",
       headers: {
         Authorization: CLICKUP_TOKEN,
@@ -265,8 +274,37 @@ exports.handler = async (event) => {
       }),
     });
   } catch (e) {
-    // Non-fatal — task already created
     console.error("Comment post failed:", e.message);
+  }
+
+  // 3. Post notification to LION Report Notifications channel
+  try {
+    const issues = checkedItems(data, ISSUE_LABELS);
+    const issuesText = issues.length ? issues.slice(0, 3).join(", ") + (issues.length > 3 ? ` (+${issues.length - 3} more)` : "") : "None flagged";
+    const pmTag = pmId === KRISTINA_ID ? "Kristina" : pmId === SHERALYN_ID ? "Sheralyn" : "Hymie";
+    const notification =
+      `📋 **New LION Report — ${client}** — Week ending ${weekEnding}\n\n` +
+      `**Submitted by:** ${ppcPerson}\n` +
+      `**Reviewer:** ${pmTag}\n` +
+      `**Top performers:** ${data.top_performers || "—"}\n` +
+      `**Issues flagged:** ${issuesText}\n\n` +
+      `**Inventory status:** ${data.inventory_status || "—"}\n\n` +
+      `🔗 [Open task in ClickUp](${task.url})`;
+
+    await fetch(`${CLICKUP_API_V3}/workspaces/${WORKSPACE_ID}/chat/channels/${LION_NOTIFICATIONS_CHANNEL_ID}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: CLICKUP_TOKEN,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        type: "message",
+        content_format: "text/md",
+        content: notification,
+      }),
+    });
+  } catch (e) {
+    console.error("Channel notification post failed:", e.message);
   }
 
   return {
@@ -278,6 +316,7 @@ exports.handler = async (event) => {
       taskUrl: task.url,
       taskName,
       listId,
+      pmId,
       ppcPerson,
       client,
     }),
