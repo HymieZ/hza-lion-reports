@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HZA — Weekly LION Reports</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface-2: #232733;
+    --border: #2d3140;
+    --text: #e8eaed;
+    --text-muted: #8b8fa3;
+    --accent: #c97f3a;
+    --accent-light: #e3a366;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 40px 16px;
+  }
+  .container { max-width: 880px; margin: 0 auto; }
+  .header {
+    text-align: center;
+    margin-bottom: 40px;
+    padding: 40px 20px;
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+  }
+  .badge {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 6px 16px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 36px;
+    margin-bottom: 8px;
+  }
+  .header p { color: var(--text-muted); font-size: 15px; max-width: 580px; margin: 0 auto; line-height: 1.5; }
+  .info-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 32px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-muted);
+  }
+  .info-block strong { color: var(--accent-light); }
+  .info-block h3 { color: var(--text); font-size: 15px; margin-bottom: 12px; }
+  .info-block ul { margin-left: 18px; margin-top: 8px; }
+  .info-block li { margin-bottom: 4px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+  }
+  .client-link {
+    display: block;
+    padding: 16px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+  .client-link:hover {
+    border-color: var(--accent);
+    background: var(--surface-2);
+    transform: translateY(-1px);
+  }
+  .client-link::after {
+    content: "→";
+    float: right;
+    color: var(--accent-light);
+    font-weight: 400;
+  }
+  .footer {
+    margin-top: 40px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="badge">Internal — HZA Team</div>
+    <h1>Weekly LION Reports</h1>
+    <p>Pick your client below to submit this week's LION report. The bot pulls the numbers — you fill in the story, the issues, and the plan.</p>
+  </div>
+
+  <div class="info-block">
+    <h3>How this works</h3>
+    <p>The bot will auto-pull all your weekly metrics (sales, ACoS, TACoS, PPC spend, conversions, organic, etc.) directly from Amazon. You only fill in what the bot can't know:</p>
+    <ul>
+      <li>What you actually optimized this week</li>
+      <li>What's blocking performance (stock, ratings, returns, etc.)</li>
+      <li>Inventory status and client context</li>
+      <li>Your plan and expected outcome for next week</li>
+    </ul>
+    <p style="margin-top: 12px;"><strong>Time to fill out:</strong> about 5 minutes per client. Submit every Monday morning before standup.</p>
+  </div>
+
+  <div class="grid" id="clientGrid"></div>
+
+  <div class="footer">
+    HZA — Hymie Zebede Agency · LION Report v1
+  </div>
+</div>
+
+<script>
+  const clients = [
+    "AllTech 365",
+    "AP Deauville Amazon",
+    "Balancing Act",
+    "Eat2Explore",
+    "Footwear King",
+    "Global Wholesale Amazon",
+    "Global Wholesale Walmart",
+    "GrubTerra",
+    "IJoy Electronics",
+    "Josmo Shoes",
+    "Kaffy",
+    "Laundry Labs",
+    "Louisiana Lumber",
+    "Luxury Collection",
+    "Marknox Global",
+    "NSA Lighting",
+    "OX Plastics Amazon",
+    "OX Plastic Walmart",
+    "Personalized Passion",
+    "Regines Super Store",
+    "Rolling Pin",
+    "Rubber Bond",
+    "Savor Goods",
+    "Savor Goods Walmart",
+    "Shalam Group",
+    "Sophie Select",
+    "Spirit Linen",
+    "Superior Products",
+    "Wholesale Apparel",
+    "Wild Bobby",
+    "Zakys Brand LLC",
+  ];
+
+  function slug(name) {
+    return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  }
+
+  const grid = document.getElementById('clientGrid');
+  clients.forEach(c => {
+    const a = document.createElement('a');
+    a.className = 'client-link';
+    a.href = `/${slug(c)}.html`;
+    a.textContent = c;
+    grid.appendChild(a);
+  });
+</script>
+</body>
+</html>
