@@ -18,38 +18,39 @@ const LION_NOTIFICATIONS_CHANNEL_ID = "8cqc8p3-162237";
 const KRISTINA_ID = 89241104;
 const SHERALYN_ID = 95144395;
 
-// Per-client config: PPC list (for task) + PM (for review assignee).
-// Source: ClickUp Client Directory + biweekly SOP PM mapping (Ahsan terminated Apr 27, Asad terminated May 19).
+// Per-client config: dedicated LION Reports list (created 2026-05-26) + PM (review assignee).
+// LION submissions land in a per-client dedicated list, separate from the general PPC list.
+// Each list is named "LION Reports" inside the client's folder. PM tags PPC person in comments to discuss.
 const CLIENTS = {
-  "AllTech 365":             { list: "901710978755", pm: KRISTINA_ID },
-  "AP Deauville Amazon":     { list: "901710978756", pm: KRISTINA_ID },
-  "Balancing Act":           { list: "901711292041", pm: KRISTINA_ID },
-  "Eat2Explore":             { list: "901711033113", pm: KRISTINA_ID },
-  "Global Wholesale Amazon": { list: "901710978757", pm: SHERALYN_ID },
-  "Global Wholesale Walmart":{ list: "901711028001", pm: SHERALYN_ID },
-  "IJoy Electronics":        { list: "901710978773", pm: SHERALYN_ID },
-  "Josmo Shoes":             { list: "901713135175", pm: KRISTINA_ID },
-  "Kaffy":                   { list: "901713027762", pm: KRISTINA_ID },
-  "Laundry Labs":            { list: "901713799832", pm: KRISTINA_ID },
-  "Louisiana Lumber":        { list: "901710978758", pm: SHERALYN_ID },
-  "Luxury Collection":       { list: "901710978759", pm: SHERALYN_ID },
-  "OX Plastics Amazon":      { list: "901710978765", pm: SHERALYN_ID },
-  "OX Plastic Walmart":      { list: "901713829662", pm: SHERALYN_ID },
-  "Personalized Passion":    { list: "901710978764", pm: KRISTINA_ID },
-  "Rolling Pin":             { list: "901710978776", pm: KRISTINA_ID },
-  "Rubber Bond":             { list: "901710978780", pm: SHERALYN_ID },
-  "Savor Goods":             { list: "901710978766", pm: SHERALYN_ID },
-  "Savor Goods Walmart":     { list: "901713161824", pm: SHERALYN_ID },
-  "Shalam Group":            { list: "901710978768", pm: KRISTINA_ID },
-  "Sophie Select":           { list: "901711543700", pm: KRISTINA_ID },
-  "Superior Products":       { list: "901713372694", pm: KRISTINA_ID },
-  "Wholesale Apparel":       { list: "901710978771", pm: KRISTINA_ID },
-  "Wild Bobby":              { list: "901713292435", pm: KRISTINA_ID },
-  "Galaxy by Harvic":        { list: "901710978784", pm: SHERALYN_ID },
+  "AllTech 365":             { list: "901714067256", pm: KRISTINA_ID },
+  "AP Deauville Amazon":     { list: "901714067258", pm: KRISTINA_ID },
+  "Balancing Act":           { list: "901714067259", pm: KRISTINA_ID },
+  "Eat2Explore":             { list: "901714067261", pm: KRISTINA_ID },
+  "Global Wholesale Amazon": { list: "901714067262", pm: SHERALYN_ID },
+  "IJoy Electronics":        { list: "901714067264", pm: SHERALYN_ID },
+  "Josmo Shoes":             { list: "901714067265", pm: KRISTINA_ID },
+  "Kaffy":                   { list: "901714067267", pm: KRISTINA_ID },
+  "Laundry Labs":            { list: "901714067269", pm: KRISTINA_ID },
+  "Louisiana Lumber":        { list: "901714067270", pm: SHERALYN_ID },
+  "Luxury Collection":       { list: "901714067272", pm: SHERALYN_ID },
+  "OX Plastics Amazon":      { list: "901714067273", pm: SHERALYN_ID },
+  "OX Plastic Walmart":      { list: "901714067274", pm: SHERALYN_ID },
+  "Personalized Passion":    { list: "901714067276", pm: KRISTINA_ID },
+  "Rolling Pin":             { list: "901714067277", pm: KRISTINA_ID },
+  "Rubber Bond":             { list: "901714067278", pm: SHERALYN_ID },
+  "Savor Goods":             { list: "901714067280", pm: SHERALYN_ID },
+  "Savor Goods Walmart":     { list: "901714067283", pm: SHERALYN_ID },
+  "Shalam Group":            { list: "901714067284", pm: KRISTINA_ID },
+  "Sophie Select":           { list: "901714067285", pm: KRISTINA_ID },
+  "Superior Products":       { list: "901714067286", pm: KRISTINA_ID },
+  "Wholesale Apparel":       { list: "901714067287", pm: KRISTINA_ID },
+  "Wild Bobby":              { list: "901714067291", pm: KRISTINA_ID },
+  "Galaxy by Harvic":        { list: "901714067293", pm: SHERALYN_ID },
+  // Global Wholesale Walmart: TODO — folder ID not yet captured; LION list pending
 };
 
-// Fallback when client not yet mapped — Hymie sees it and routes
-const FALLBACK = { list: "901710978755", pm: HYMIE_USER_ID };
+// Fallback when client not yet mapped — lands in AllTech 365's LION list, assigned to Hymie for routing
+const FALLBACK = { list: "901714067256", pm: HYMIE_USER_ID };
 
 const OPTIMIZATION_LABELS = {
   opt_paused: "Paused low-performing campaigns / keywords",
