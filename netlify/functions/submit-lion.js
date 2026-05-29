@@ -32,7 +32,7 @@ const CLIENTS = {
   "IJoy Electronics":        { list: "901714067264", pm: SHERALYN_ID, channel: "5-90173726301-8" },
   "Josmo Shoes":             { list: "901714067265", pm: KRISTINA_ID, channel: "5-90178337268-8" },
   "Kaffy":                   { list: "901714067267", pm: KRISTINA_ID, channel: "5-90178257954-8" },
-  "Laundry Labs":            { list: "901714067269", pm: KRISTINA_ID, channel: null },
+  "Laundry Labs":            { list: "901714067269", pm: KRISTINA_ID, channel: "5-90178825997-8" },
   "Louisiana Lumber":        { list: "901714067270", pm: SHERALYN_ID, channel: "4-90170775242-8" },
   "Luxury Collection":       { list: "901714067272", pm: SHERALYN_ID, channel: "4-90170775251-8" },
   "OX Plastics Amazon":      { list: "901714067273", pm: SHERALYN_ID, channel: "4-90170775258-8" },
@@ -85,6 +85,30 @@ const ISSUE_LABELS = {
   issue_client: "Client concern / change in direction",
   issue_none: "No major issues",
 };
+
+// Return Unix-ms timestamp for the first Monday on or after `weekEndingStr`
+// (YYYY-MM-DD). Used to populate `due_date` on the PM review task so every
+// LION report has a hard deadline that lines up with Monday brief work.
+// Returns null if input is missing/unparseable; falls back to the upcoming
+// Monday relative to today.
+function computeMondayDueMs(weekEndingStr) {
+  let y, m, d;
+  if (weekEndingStr && /^\d{4}-\d{2}-\d{2}$/.test(weekEndingStr)) {
+    [y, m, d] = weekEndingStr.split("-").map(Number);
+  } else {
+    const now = new Date();
+    y = now.getUTCFullYear();
+    m = now.getUTCMonth() + 1;
+    d = now.getUTCDate();
+  }
+  // Anchor at 12:00 UTC to dodge DST/midnight edge cases when ClickUp
+  // renders the date in the workspace timezone.
+  const dt = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  const dow = dt.getUTCDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const daysToMon = (8 - dow) % 7; // Sun→1, Mon→0, Tue→6, ..., Sat→2
+  dt.setUTCDate(dt.getUTCDate() + daysToMon);
+  return dt.getTime();
+}
 
 function parseBody(event) {
   const ct = (event.headers["content-type"] || event.headers["Content-Type"] || "").toLowerCase();
@@ -235,6 +259,11 @@ exports.handler = async (event) => {
   const taskName = `LION Report — ${client} — Week ending ${weekEnding}`;
   const description = formatDescription(data);
 
+  // Due date = the first Monday on or after the report's week_ending.
+  // PPC fills out Friday → PM reviews by Monday (Monday brief depends on it).
+  // Fallback: if week_ending unparseable, use the upcoming Monday from today.
+  const dueDateMs = computeMondayDueMs(weekEnding);
+
   // 1. Create the review task in the client's PPC list, assigned to the PM
   let task;
   try {
@@ -249,7 +278,8 @@ exports.handler = async (event) => {
         description,
         assignees: [pmId],
         priority: 3,
-        status: "to do",
+        status: "pm review",
+        ...(dueDateMs ? { due_date: dueDateMs, due_date_time: false } : {}),
       }),
     });
     task = await resp.json();
