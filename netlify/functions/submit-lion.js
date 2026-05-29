@@ -18,34 +18,36 @@ const LION_NOTIFICATIONS_CHANNEL_ID = "8cqc8p3-162237";
 const KRISTINA_ID = 89241104;
 const SHERALYN_ID = 95144395;
 
-// Per-client config: dedicated LION Reports list (created 2026-05-26) + PM (review assignee).
+// Per-client config: dedicated LION Reports list (created 2026-05-26) + PM (review assignee) + main internal channel.
 // LION submissions land in a per-client dedicated list, separate from the general PPC list.
 // Each list is named "LION Reports" inside the client's folder. PM tags PPC person in comments to discuss.
+// `channel` is the client's main internal ClickUp chat channel (from client-registry.json).
+// Walmart counterparts without dedicated channels reuse their Amazon channel.
 const CLIENTS = {
-  "AllTech 365":             { list: "901714067256", pm: KRISTINA_ID },
-  "AP Deauville Amazon":     { list: "901714067258", pm: KRISTINA_ID },
-  "Balancing Act":           { list: "901714067259", pm: KRISTINA_ID },
-  "Eat2Explore":             { list: "901714067261", pm: KRISTINA_ID },
-  "Global Wholesale Amazon": { list: "901714067262", pm: SHERALYN_ID },
-  "IJoy Electronics":        { list: "901714067264", pm: SHERALYN_ID },
-  "Josmo Shoes":             { list: "901714067265", pm: KRISTINA_ID },
-  "Kaffy":                   { list: "901714067267", pm: KRISTINA_ID },
-  "Laundry Labs":            { list: "901714067269", pm: KRISTINA_ID },
-  "Louisiana Lumber":        { list: "901714067270", pm: SHERALYN_ID },
-  "Luxury Collection":       { list: "901714067272", pm: SHERALYN_ID },
-  "OX Plastics Amazon":      { list: "901714067273", pm: SHERALYN_ID },
-  "OX Plastic Walmart":      { list: "901714067274", pm: SHERALYN_ID },
-  "Personalized Passion":    { list: "901714067276", pm: KRISTINA_ID },
-  "Rolling Pin":             { list: "901714067277", pm: KRISTINA_ID },
-  "Rubber Bond":             { list: "901714067278", pm: SHERALYN_ID },
-  "Savor Goods":             { list: "901714067280", pm: SHERALYN_ID },
-  "Savor Goods Walmart":     { list: "901714067283", pm: SHERALYN_ID },
-  "Shalam Group":            { list: "901714067284", pm: KRISTINA_ID },
-  "Sophie Select":           { list: "901714067285", pm: KRISTINA_ID },
-  "Superior Products":       { list: "901714067286", pm: KRISTINA_ID },
-  "Wholesale Apparel":       { list: "901714067287", pm: KRISTINA_ID },
-  "Wild Bobby":              { list: "901714067291", pm: KRISTINA_ID },
-  "Galaxy by Harvic":        { list: "901714067293", pm: SHERALYN_ID },
+  "AllTech 365":             { list: "901714067256", pm: KRISTINA_ID, channel: "4-90171101286-8" },
+  "AP Deauville Amazon":     { list: "901714067258", pm: KRISTINA_ID, channel: "4-90170775261-8" },
+  "Balancing Act":           { list: "901714067259", pm: KRISTINA_ID, channel: "5-90176729151-8" },
+  "Eat2Explore":             { list: "901714067261", pm: KRISTINA_ID, channel: "4-90170967840-8" },
+  "Global Wholesale Amazon": { list: "901714067262", pm: SHERALYN_ID, channel: "4-90170775097-8" },
+  "IJoy Electronics":        { list: "901714067264", pm: SHERALYN_ID, channel: "5-90173726301-8" },
+  "Josmo Shoes":             { list: "901714067265", pm: KRISTINA_ID, channel: "5-90178337268-8" },
+  "Kaffy":                   { list: "901714067267", pm: KRISTINA_ID, channel: "5-90178257954-8" },
+  "Laundry Labs":            { list: "901714067269", pm: KRISTINA_ID, channel: null },
+  "Louisiana Lumber":        { list: "901714067270", pm: SHERALYN_ID, channel: "4-90170775242-8" },
+  "Luxury Collection":       { list: "901714067272", pm: SHERALYN_ID, channel: "4-90170775251-8" },
+  "OX Plastics Amazon":      { list: "901714067273", pm: SHERALYN_ID, channel: "4-90170775258-8" },
+  "OX Plastic Walmart":      { list: "901714067274", pm: SHERALYN_ID, channel: "4-90170775258-8" }, // reuses Amazon channel
+  "Personalized Passion":    { list: "901714067276", pm: KRISTINA_ID, channel: "4-90171014580-8" },
+  "Rolling Pin":             { list: "901714067277", pm: KRISTINA_ID, channel: "5-90174894794-8" },
+  "Rubber Bond":             { list: "901714067278", pm: SHERALYN_ID, channel: "5-90176024611-8" },
+  "Savor Goods":             { list: "901714067280", pm: SHERALYN_ID, channel: "4-90170890034-8" },
+  "Savor Goods Walmart":     { list: "901714067283", pm: SHERALYN_ID, channel: "4-90170890034-8" }, // reuses Amazon channel
+  "Shalam Group":            { list: "901714067284", pm: KRISTINA_ID, channel: "4-90171062793-8" },
+  "Sophie Select":           { list: "901714067285", pm: KRISTINA_ID, channel: "5-90177096446-8" },
+  "Superior Products":       { list: "901714067286", pm: KRISTINA_ID, channel: "5-90178513854-8" },
+  "Wholesale Apparel":       { list: "901714067287", pm: KRISTINA_ID, channel: "5-90172690990-8" },
+  "Wild Bobby":              { list: "901714067291", pm: KRISTINA_ID, channel: "5-90178453011-8" },
+  "Galaxy by Harvic":        { list: "901714067293", pm: SHERALYN_ID, channel: "5-90176599383-8" },
   // Global Wholesale Walmart: TODO — folder ID not yet captured; LION list pending
 };
 
@@ -278,34 +280,47 @@ exports.handler = async (event) => {
     console.error("Comment post failed:", e.message);
   }
 
-  // 3. Post notification to LION Report Notifications channel
-  try {
-    const issues = checkedItems(data, ISSUE_LABELS);
-    const issuesText = issues.length ? issues.slice(0, 3).join(", ") + (issues.length > 3 ? ` (+${issues.length - 3} more)` : "") : "None flagged";
-    const pmTag = pmId === KRISTINA_ID ? "Kristina" : pmId === SHERALYN_ID ? "Sheralyn" : "Hymie";
-    const notification =
-      `📋 **New LION Report — ${client}** — Week ending ${weekEnding}\n\n` +
-      `**Submitted by:** ${ppcPerson}\n` +
-      `**Reviewer:** ${pmTag}\n` +
-      `**Top performers:** ${data.top_performers || "—"}\n` +
-      `**Issues flagged:** ${issuesText}\n\n` +
-      `**Inventory status:** ${data.inventory_status || "—"}\n\n` +
-      `🔗 [Open task in ClickUp](${task.url})`;
+  // Build the notification body once — posted to both LION Notifications and the client's main channel.
+  const issues = checkedItems(data, ISSUE_LABELS);
+  const issuesText = issues.length ? issues.slice(0, 3).join(", ") + (issues.length > 3 ? ` (+${issues.length - 3} more)` : "") : "None flagged";
+  const pmTag = pmId === KRISTINA_ID ? "Kristina" : pmId === SHERALYN_ID ? "Sheralyn" : "Hymie";
+  const notification =
+    `📋 **New LION Report — ${client}** — Week ending ${weekEnding}\n\n` +
+    `**Submitted by:** ${ppcPerson}\n` +
+    `**Reviewer:** ${pmTag}\n` +
+    `**Top performers:** ${data.top_performers || "—"}\n` +
+    `**Issues flagged:** ${issuesText}\n\n` +
+    `**Inventory status:** ${data.inventory_status || "—"}\n\n` +
+    `🔗 [Open task in ClickUp](${task.url})`;
 
-    await fetch(`${CLICKUP_API_V3}/workspaces/${WORKSPACE_ID}/chat/channels/${LION_NOTIFICATIONS_CHANNEL_ID}/messages`, {
-      method: "POST",
-      headers: {
-        Authorization: CLICKUP_TOKEN,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        type: "message",
-        content_format: "text/md",
-        content: notification,
-      }),
-    });
-  } catch (e) {
-    console.error("Channel notification post failed:", e.message);
+  async function postToChannel(channelId, label) {
+    try {
+      await fetch(`${CLICKUP_API_V3}/workspaces/${WORKSPACE_ID}/chat/channels/${channelId}/messages`, {
+        method: "POST",
+        headers: {
+          Authorization: CLICKUP_TOKEN,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "message",
+          content_format: "text/md",
+          content: notification,
+        }),
+      });
+    } catch (e) {
+      console.error(`Channel post failed (${label}):`, e.message);
+    }
+  }
+
+  // 3. Post to LION Report Notifications channel (agency-wide visibility)
+  await postToChannel(LION_NOTIFICATIONS_CHANNEL_ID, "LION Notifications");
+
+  // 4. Post to the client's main internal channel (per-client team visibility).
+  // Skipped silently when no channel is mapped (e.g. Laundry Labs, fallback).
+  if (cfg.channel) {
+    await postToChannel(cfg.channel, `main channel ${client}`);
+  } else {
+    console.warn(`No main channel mapped for client "${client}" — skipped main-channel post.`);
   }
 
   return {
