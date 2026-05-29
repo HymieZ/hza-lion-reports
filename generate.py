@@ -424,9 +424,62 @@ TEMPLATE = """<!DOCTYPE html>
       </div>
     </div>
 
-    <!-- ============= SECTION 9: CATCH-ALL ============= -->
+    <!-- ============= SECTION 9: STRUCTURAL SELF-CHECK ============= -->
     <div class="section">
-      <div class="section-title">8. Anything Else</div>
+      <div class="section-title">8. Account Structure Self-Check</div>
+      <div class="section-subtitle">Honest yes/no on the structural basics. If you mark "Needs work" on any of these, the PM will pick it up in review — explain in the note. Lying to make a fast submit is the worst outcome; this gets verified eventually.</div>
+
+      <div class="field">
+        <label>Every parent you're actively pushing has 8+ targeted keywords across Auto + Broad + Exact campaigns combined <span class="required">*</span></label>
+        <div class="checkbox-group">
+          <label><input type="radio" name="structural_keywords" value="Yes" required> Yes — all parents covered</label>
+          <label><input type="radio" name="structural_keywords" value="Needs work"> Needs work — some parents thin</label>
+        </div>
+        <textarea name="structural_keywords_note" placeholder="If 'Needs work': which parents are under-covered and what's the plan to fix?" style="margin-top: 12px;"></textarea>
+      </div>
+
+      <div class="field">
+        <label>Every well-stocked child ASIN (100+ days of supply) has at least one active campaign <span class="required">*</span></label>
+        <div class="checkbox-group">
+          <label><input type="radio" name="structural_variants" value="Yes" required> Yes — all variants covered</label>
+          <label><input type="radio" name="structural_variants" value="Needs work"> Needs work — some unspent</label>
+          <label><input type="radio" name="structural_variants" value="N/A"> N/A — no variation listings</label>
+        </div>
+        <textarea name="structural_variants_note" placeholder="If 'Needs work': which variants are sitting on inventory with zero spend?" style="margin-top: 12px;"></textarea>
+      </div>
+
+      <div class="field">
+        <label>Bids or budgets adjusted on this account within the last 3 days <span class="required">*</span></label>
+        <div class="checkbox-group">
+          <label><input type="radio" name="structural_idle" value="Yes" required> Yes — actively adjusting</label>
+          <label><input type="radio" name="structural_idle" value="No"> No — let it run as-is</label>
+        </div>
+        <textarea name="structural_idle_note" placeholder="If 'No': why? (e.g., paused account, stable on autopilot, waiting on stock recovery)" style="margin-top: 12px;"></textarea>
+      </div>
+
+      <div class="field">
+        <label>Brand-term spend is being negated out of Auto campaigns — no leakage on own-brand searches <span class="required">*</span></label>
+        <div class="checkbox-group">
+          <label><input type="radio" name="structural_brand" value="Yes" required> Yes — negatives in place</label>
+          <label><input type="radio" name="structural_brand" value="Needs work"> Needs work — some leakage</label>
+          <label><input type="radio" name="structural_brand" value="N/A"> N/A — no Auto campaigns running</label>
+        </div>
+        <textarea name="structural_brand_note" placeholder="If 'Needs work': rough $ leaked this week and plan to fix?" style="margin-top: 12px;"></textarea>
+      </div>
+
+      <div class="field">
+        <label>Every ASIN you're scaling spend on has a complete listing (title / bullets / A+ / images) AND rating ≥ 4.0 <span class="required">*</span></label>
+        <div class="checkbox-group">
+          <label><input type="radio" name="structural_listing" value="Yes" required> Yes — all listings ready for spend</label>
+          <label><input type="radio" name="structural_listing" value="Needs work"> Needs work — some gaps</label>
+        </div>
+        <textarea name="structural_listing_note" placeholder="If 'Needs work': which ASINs and what's the gap (listing incomplete? rating under 4.0?)" style="margin-top: 12px;"></textarea>
+      </div>
+    </div>
+
+    <!-- ============= SECTION 10: CATCH-ALL ============= -->
+    <div class="section">
+      <div class="section-title">9. Anything Else</div>
       <div class="field">
         <label>Anything else worth flagging <span class="hint">— optional</span></label>
         <textarea name="anything_else" placeholder="Anything that doesn't fit the boxes above. Quick wins, weird patterns, client gossip, things to investigate — whatever. Leave blank if nothing."></textarea>
@@ -548,3 +601,4 @@ if __name__ == "__main__":
             f.write(generate_html(client))
         print(f"Generated: {filename}")
     print(f"\nGenerated {len(CLIENTS)} client forms.")
+
