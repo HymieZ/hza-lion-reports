@@ -216,8 +216,33 @@ function formatDescription(data) {
   lines.push(data.expected_outcomes || "—");
   lines.push("");
 
+  // --- Section 8: Account Structure Self-Check ---
+  const structuralChecks = [
+    { key: "structural_keywords", label: "8+ keywords per pushed parent (Auto + Broad + Exact)", note: "structural_keywords_note" },
+    { key: "structural_variants", label: "Every 100+ DoS child ASIN has an active campaign", note: "structural_variants_note" },
+    { key: "structural_idle", label: "Bids/budgets adjusted within last 3 days", note: "structural_idle_note" },
+    { key: "structural_brand", label: "Brand-term negatives in place on Autos", note: "structural_brand_note" },
+    { key: "structural_listing", label: "Listings complete + rating ≥ 4.0 on scaled ASINs", note: "structural_listing_note" },
+  ];
+  const anyStructuralAnswered = structuralChecks.some(c => data[c.key]);
+  if (anyStructuralAnswered) {
+    lines.push(`## 8. Account Structure Self-Check`);
+    lines.push("");
+    for (const c of structuralChecks) {
+      const answer = data[c.key];
+      if (!answer) continue;
+      const flag = answer === "Yes" ? "✅" : answer === "N/A" ? "➖" : "⚠️";
+      lines.push(`- ${flag} **${c.label}** — ${answer}`);
+      const noteVal = data[c.note];
+      if (noteVal && answer !== "Yes") {
+        lines.push(`    - Note: ${noteVal}`);
+      }
+    }
+    lines.push("");
+  }
+
   if (data.anything_else) {
-    lines.push(`## 8. Anything Else`);
+    lines.push(`## 9. Anything Else`);
     lines.push("");
     lines.push(data.anything_else);
     lines.push("");
