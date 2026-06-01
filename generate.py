@@ -18,6 +18,7 @@ CLIENTS = [
     "Balancing Act",
     "Eat2Explore",
     "Footwear King",
+    "Galaxy by Harvic",
     "Global Wholesale Amazon",
     "Global Wholesale Walmart",
     "GrubTerra",
