@@ -45,6 +45,11 @@ CLIENTS = [
     "Wholesale Apparel",
     "Wild Bobby",
     "Zakys Brand LLC",
+    "Silly George",
+    "NEXGEL",
+    "Kenkoderm",
+    "VytaDose",
+
 ]
 
 
