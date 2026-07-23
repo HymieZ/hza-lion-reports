@@ -48,6 +48,10 @@ const CLIENTS = {
   "Wholesale Apparel":       { list: "901714067287", pm: KRISTINA_ID, channel: "5-90172690990-8" },
   "Wild Bobby":              { list: "901714067291", pm: KRISTINA_ID, channel: "5-90178453011-8" },
   "Galaxy by Harvic":        { list: "901714067293", pm: SHERALYN_ID, channel: "5-90176599383-8" },
+  "Silly George":            { list: "901714838438", pm: KRISTINA_ID },
+  "NEXGEL":                  { list: "901714838463", pm: KRISTINA_ID },
+  "Kenkoderm":               { list: "901714838493", pm: KRISTINA_ID },
+  "VytaDose":                { list: "901714873343", pm: KRISTINA_ID },
   // Global Wholesale Walmart: TODO — folder ID not yet captured; LION list pending
 };
 
@@ -370,13 +374,11 @@ exports.handler = async (event) => {
   // 3. Post to LION Report Notifications channel (agency-wide visibility)
   await postToChannel(LION_NOTIFICATIONS_CHANNEL_ID, "LION Notifications");
 
-  // 4. Post to the client's main internal channel (per-client team visibility).
-  // Skipped silently when no channel is mapped (e.g. Laundry Labs, fallback).
-  if (cfg.channel) {
-    await postToChannel(cfg.channel, `main channel ${client}`);
-  } else {
-    console.warn(`No main channel mapped for client "${client}" — skipped main-channel post.`);
-  }
+  // 4. Per-client internal-channel post DISABLED (Hymie decision 2026-07-23):
+  // LION submissions post ONLY to the agency-wide LION Notifications channel above,
+  // NOT to each client's main internal team channel. The `channel` field is retained
+  // in the CLIENTS map for reference but is intentionally not used here.
+  // (Re-enable by restoring the `if (cfg.channel) { await postToChannel(...) }` block.)
 
   return {
     statusCode: 200,
