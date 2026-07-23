@@ -23,7 +23,7 @@ const SHERALYN_ID = 95144395;
 // Each list is named "LION Reports" inside the client's folder. PM tags PPC person in comments to discuss.
 // `channel` is the client's main internal ClickUp chat channel (from client-registry.json).
 // Walmart counterparts without dedicated channels reuse their Amazon channel.
-const CLIENTS = {
+const CLIENTS_FALLBACK = {
   "AllTech 365":             { list: "901714067256", pm: KRISTINA_ID, channel: "4-90171101286-8" },
   "AP Deauville Amazon":     { list: "901714067258", pm: KRISTINA_ID, channel: "4-90170775261-8" },
   "Balancing Act":           { list: "901714067259", pm: KRISTINA_ID, channel: "5-90176729151-8" },
@@ -57,6 +57,26 @@ const CLIENTS = {
 
 // Fallback when client not yet mapped — lands in AllTech 365's LION list, assigned to Hymie for routing
 const FALLBACK = { list: "901714067256", pm: HYMIE_USER_ID };
+
+// Routing source of truth = /lion-routing.json (a static file deployed alongside forms).
+// New clients are wired in by deploying an updated JSON — the function code never changes.
+// If the fetch fails for any reason, we fall back to the embedded snapshot above so a
+// submission is never lost (worst case it lands in the Hymie fallback queue, as before).
+const ROUTING_URL = "https://hza-lion-reports.netlify.app/lion-routing.json";
+async function loadRouting() {
+  try {
+    const r = await fetch(ROUTING_URL, { headers: { "cache-control": "no-cache" } });
+    if (r.ok) {
+      const j = await r.json();
+      if (j && typeof j === "object" && Object.keys(j).length > 0) return j;
+    }
+    console.error("routing JSON unusable, using embedded fallback");
+  } catch (e) {
+    console.error("routing fetch failed, using embedded fallback:", e.message);
+  }
+  return CLIENTS_FALLBACK;
+}
+
 
 const OPTIMIZATION_LABELS = {
   opt_paused: "Paused low-performing campaigns / keywords",
@@ -281,7 +301,8 @@ exports.handler = async (event) => {
   const client = data.client || "Unknown Client";
   const weekEnding = data.week_ending || new Date().toISOString().slice(0, 10);
   const ppcPerson = data.ppc_person || "Unknown";
-  const cfg = CLIENTS[client] || FALLBACK;
+  const routing = await loadRouting();
+  const cfg = routing[client] || FALLBACK;
   const listId = cfg.list;
   const pmId = cfg.pm;
 
