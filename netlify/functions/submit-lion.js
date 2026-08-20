@@ -360,6 +360,27 @@ exports.handler = async (event) => {
     console.error("Comment post failed:", e.message);
   }
 
+  // 2.5 Forward the submission to the ZBD Insights dashboard (2026-08-20, Sheralyn's request:
+  // "automate the weekly LION Report as soon as they are submitted ... add them in ZBD Insights").
+  // Non-fatal BY DESIGN: the ClickUp task above is the system of record — the dashboard must
+  // never cost us a submission. Uses the same raw `data` object preserved in the task comment.
+  let dashboardOk = false;
+  try {
+    if (process.env.ZBD_INSIGHTS_KEY) {
+      const zr = await fetch("https://zbd-insights.netlify.app/api/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-app-pass": process.env.ZBD_INSIGHTS_KEY },
+        body: JSON.stringify({ op: "lion_submit", data, task_url: task.url }),
+      });
+      dashboardOk = zr.ok;
+      if (!zr.ok) console.error("ZBD Insights forward failed:", zr.status, await zr.text().catch(() => ""));
+    } else {
+      console.error("ZBD_INSIGHTS_KEY not set — dashboard forward skipped");
+    }
+  } catch (e) {
+    console.error("ZBD Insights forward failed:", e.message);
+  }
+
   // Build the notification body once — posted to both LION Notifications and the client's main channel.
   const issues = checkedItems(data, ISSUE_LABELS);
   const issuesText = issues.length ? issues.slice(0, 3).join(", ") + (issues.length > 3 ? ` (+${issues.length - 3} more)` : "") : "None flagged";
@@ -371,7 +392,8 @@ exports.handler = async (event) => {
     `**Top performers:** ${data.top_performers || "—"}\n` +
     `**Issues flagged:** ${issuesText}\n\n` +
     `**Inventory status:** ${data.inventory_status || "—"}\n\n` +
-    `🔗 [Open task in ClickUp](${task.url})`;
+    `🔗 [Open task in ClickUp](${task.url})` +
+    (dashboardOk ? `\n📊 [View in ZBD Insights](https://zbd-insights.netlify.app/#/lion)` : "");
 
   async function postToChannel(channelId, label) {
     try {
