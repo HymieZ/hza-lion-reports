@@ -381,6 +381,38 @@ exports.handler = async (event) => {
     console.error("ZBD Insights forward failed:", e.message);
   }
 
+  // 2.6 Carry open PM comments into THIS week's task (2026-08-21, Sheralyn's carry-over rule:
+  // "comments should automatically carry over into the next recurring task and continue appearing
+  // until they are addressed"). The dashboard is the source of truth for open comments; the new
+  // task gets them attached as a comment so the PPC person sees them without opening the page.
+  // Best-effort: a dashboard hiccup must not affect the submission.
+  try {
+    if (process.env.ZBD_INSIGHTS_KEY && CLICKUP_TOKEN) {
+      const key = String(client).trim().toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      const cr = await fetch("https://zbd-insights.netlify.app/api/data?lion=" + encodeURIComponent(key),
+        { headers: { "x-app-pass": process.env.ZBD_INSIGHTS_KEY } });
+      if (cr.ok) {
+        const cj = await cr.json();
+        const open = (cj.comments || []).filter((c) => !c.resolved);
+        if (open.length) {
+          await fetch(`${CLICKUP_API_V2}/task/${task.id}/comment`, {
+            method: "POST",
+            headers: { Authorization: CLICKUP_TOKEN, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              comment_text:
+                "⚠️ OPEN PM COMMENTS carried from previous weeks — address these, then mark them " +
+                "addressed on the ZBD Insights LION page (https://zbd-insights.netlify.app/#/lion) " +
+                "so they stop reappearing:\n\n" +
+                open.map((c) => `• [${c.createdWeek || "?"}] ${c.author}: ${c.text}`).join("\n"),
+            }),
+          });
+        }
+      }
+    }
+  } catch (e) {
+    console.error("carry-over comment attach failed:", e.message);
+  }
+
   // Build the notification body once — posted to both LION Notifications and the client's main channel.
   const issues = checkedItems(data, ISSUE_LABELS);
   const issuesText = issues.length ? issues.slice(0, 3).join(", ") + (issues.length > 3 ? ` (+${issues.length - 3} more)` : "") : "None flagged";
