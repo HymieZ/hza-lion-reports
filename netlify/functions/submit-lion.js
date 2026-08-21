@@ -222,6 +222,13 @@ function formatDescription(data) {
     lines.push("");
   }
 
+  if (data.client_needs) {
+    lines.push(`## 5b. What We Need From the Client`);
+    lines.push("");
+    lines.push(data.client_needs);
+    lines.push("");
+  }
+
   lines.push(`## 6. Plan for Next Week`);
   lines.push("");
   if (data.priority_1) lines.push(`**Priority 1:** ${data.priority_1}`);
