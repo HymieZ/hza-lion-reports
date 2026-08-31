@@ -3,7 +3,7 @@ const test = require("node:test");
 
 process.env.NODE_ENV = "test";
 process.env.CLICKUP_TOKEN = "test-clickup-token";
-process.env.ZBD_INSIGHTS_KEY = "test-dashboard-key";
+process.env.LION_INGEST_KEY = "test-dashboard-key";
 
 const { handler } = require("./netlify/functions/submit-lion.js");
 
@@ -68,7 +68,7 @@ test("task creation is atomic, redundant comment and dashboard retry, and proven
         ? jsonResponse({ ok: false, error: "busy" }, 500)
         : jsonResponse({ ok: true, result: "created" });
     }
-    if (String(url).startsWith("https://zbd-insights.netlify.app/api/data?lion=")) {
+    if (String(url).startsWith("https://zbd-insights.netlify.app/api/data?lion_comments=")) {
       return jsonResponse({ ok: true, comments: [] });
     }
     if (String(url).includes("/chat/channels/")) return jsonResponse({ id: "message-1" });
@@ -99,6 +99,7 @@ test("task creation is atomic, redundant comment and dashboard retry, and proven
   assert.equal(forwarded.hash_schema, "lion-canonical-json-v1");
   assert.equal(forwarded.payload_hash, "046a7ea6c3e94d8c33068609eae7dec7730d4345fddb196c6ca9c3880280859a");
   assert.equal(forwarded.ingest_mode, "live");
+  assert.equal(dashboardCall.options.headers["x-lion-ingest-key"], "test-dashboard-key");
 });
 
 test("dashboard rejection does not invite a duplicate task and leaves a failure marker", async () => {
@@ -117,7 +118,7 @@ test("dashboard rejection does not invite a duplicate task and leaves a failure 
     if (String(url) === "https://zbd-insights.netlify.app/api/data" && options.method === "POST") {
       return jsonResponse({ ok: false, error: "unauthorized" }, 401);
     }
-    if (String(url).startsWith("https://zbd-insights.netlify.app/api/data?lion=")) {
+    if (String(url).startsWith("https://zbd-insights.netlify.app/api/data?lion_comments=")) {
       return jsonResponse({ ok: true, comments: [] });
     }
     if (String(url).includes("/chat/channels/")) return jsonResponse({ id: "message-1" });

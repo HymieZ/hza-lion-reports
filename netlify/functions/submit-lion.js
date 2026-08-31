@@ -4,6 +4,7 @@
 //
 // Env vars required (set in Netlify dashboard):
 //   CLICKUP_TOKEN  - personal API token (no Bearer prefix)
+//   LION_INGEST_KEY - least-privilege ZBD Insights ingestion credential
 
 const { createHash } = require("node:crypto");
 
@@ -442,10 +443,10 @@ exports.handler = async (event) => {
   // never cost us a submission. Uses the same raw `data` object preserved in the task comment.
   let dashboardOk = false;
   let dashboardResult = "pending";
-  if (process.env.ZBD_INSIGHTS_KEY && task.date_created) {
+  if (process.env.LION_INGEST_KEY && task.date_created) {
     const forward = await fetchWithRetry("https://zbd-insights.netlify.app/api/data", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-app-pass": process.env.ZBD_INSIGHTS_KEY },
+        headers: { "Content-Type": "application/json", "x-lion-ingest-key": process.env.LION_INGEST_KEY },
         body: JSON.stringify({
           op: "lion_submit",
           data,
@@ -464,9 +465,9 @@ exports.handler = async (event) => {
       if (!dashboardOk) console.error("ZBD Insights forward rejected:", forward.response.status, responseBody?.error || "");
     }
   } else {
-    console.error(process.env.ZBD_INSIGHTS_KEY
+    console.error(process.env.LION_INGEST_KEY
       ? "ClickUp create response lacked date_created — dashboard forward deferred"
-      : "ZBD_INSIGHTS_KEY not set — dashboard forward skipped");
+      : "LION_INGEST_KEY not set — dashboard forward skipped");
   }
 
   if (!dashboardOk) {
@@ -481,10 +482,10 @@ exports.handler = async (event) => {
   // task gets them attached as a comment so the PPC person sees them without opening the page.
   // Best-effort: a dashboard hiccup must not affect the submission.
   try {
-    if (process.env.ZBD_INSIGHTS_KEY && CLICKUP_TOKEN) {
+    if (process.env.LION_INGEST_KEY && CLICKUP_TOKEN) {
       const key = String(client).trim().toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-      const cr = await fetch("https://zbd-insights.netlify.app/api/data?lion=" + encodeURIComponent(key),
-        { headers: { "x-app-pass": process.env.ZBD_INSIGHTS_KEY } });
+      const cr = await fetch("https://zbd-insights.netlify.app/api/data?lion_comments=" + encodeURIComponent(key),
+        { headers: { "x-lion-ingest-key": process.env.LION_INGEST_KEY } });
       if (cr.ok) {
         const cj = await cr.json();
         const open = (cj.comments || []).filter((c) => !c.resolved);
