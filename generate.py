@@ -29,6 +29,7 @@ CLIENTS = [
     "Kenkoderm",
     "Laundry Labs",
     "Louisiana Lumber",
+    "Lumia H2",
     "Luxury Collection",
     "Marknox Global",
     "NEXGEL",
