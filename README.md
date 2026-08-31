@@ -42,6 +42,10 @@ is pending. In that case the form explicitly says not to resubmit, avoiding dupl
 The current reliability design and reconciler contract live in the Obsidian vault at
 `00-Home/Skills/hza-forms-sync/lion-forwarding-reconciliation-design.md`.
 
+Function secrets are `CLICKUP_TOKEN` and `LION_INGEST_KEY`. The latter is a dedicated machine
+credential accepted only by the dashboard's LION submit and carry-over-comment paths; do not
+restore the former broad `ZBD_INSIGHTS_KEY` / `x-app-pass` integration.
+
 ## Color theme
 
 Amber/orange accent (`#c97f3a`) to distinguish from the purple PM Brief forms.
