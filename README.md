@@ -40,3 +40,20 @@ A Make.com scenario will eventually subscribe to submissions and:
 ## Color theme
 
 Amber/orange accent (`#c97f3a`) to distinguish from the purple PM Brief forms.
+
+## Deploying (read this before you touch anything)
+
+**Git push is the only production publisher. Do not deploy this site any other way.**
+
+The site is linked to `HymieZ/hza-lion-reports@main` (Netlify GitHub App installation
+112211185). A push to `main` builds and publishes, functions included.
+
+History worth knowing: until 2026-08-31 this site was **not** linked to any repo, and its
+only deploy path was the `hza-forms-sync` Cloud Function's Netlify *digest deploy*, which by
+design ships static files only and re-uses the already-published function bundle. The result
+was that the 2026-08-20 commit adding LION -> ZBD Insights forwarding sat in GitHub for ten
+days while production kept serving the 2026-07-23 function. Reports reached ClickUp and never
+reached the dashboard, and nobody could see why, because the repo looked correct.
+
+Two publishers to one production site is a rollback race: whichever finishes last wins,
+regardless of which is newer. That is why forms-sync no longer deploys.
