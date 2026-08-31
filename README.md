@@ -46,6 +46,11 @@ Function secrets are `CLICKUP_TOKEN` and `LION_INGEST_KEY`. The latter is a dedi
 credential accepted only by the dashboard's LION submit and carry-over-comment paths; do not
 restore the former broad `ZBD_INSIGHTS_KEY` / `x-app-pass` integration.
 
+Environment changes must be followed by a Git-triggered production build before treating the
+new value as active in a running Netlify Function. This was verified during the 2026-08-31 key
+resynchronization: the saved site configuration had changed while the published runtime still
+held the preceding value.
+
 ## Color theme
 
 Amber/orange accent (`#c97f3a`) to distinguish from the purple PM Brief forms.
