@@ -5,11 +5,17 @@
 // Env vars required (set in Netlify dashboard):
 //   CLICKUP_TOKEN  - personal API token (no Bearer prefix)
 
+const { createHash } = require("node:crypto");
+
 const CLICKUP_TOKEN = process.env.CLICKUP_TOKEN;
 const CLICKUP_API_V2 = "https://api.clickup.com/api/v2";
 const CLICKUP_API_V3 = "https://api.clickup.com/api/v3";
 const WORKSPACE_ID = "9017107139";
 const HYMIE_USER_ID = 43731147;
+const RAW_START = "<!-- LION_RAW_V1_START -->";
+const RAW_END = "<!-- LION_RAW_V1_END -->";
+const DESCRIPTION_LIMIT_BYTES = 240 * 1024;
+const HASH_SCHEMA = "lion-canonical-json-v1";
 
 // Channel where every LION submission posts a notification (Hymie + PMs)
 const LION_NOTIFICATIONS_CHANNEL_ID = "8cqc8p3-162237";
@@ -160,6 +166,73 @@ function checkedItems(data, labels) {
     .map(([, label]) => label);
 }
 
+function normalizePayload(value) {
+  if (Array.isArray(value)) return value.map(normalizePayload);
+  if (value && typeof value === "object") {
+    const entries = [];
+    for (const key of Object.keys(value).sort()) {
+      const normalized = normalizePayload(value[key]);
+      if (normalized === "") continue;
+      entries.push([key, normalized]);
+    }
+    return Object.fromEntries(entries);
+  }
+  if (typeof value === "string") return value.replace(/\r\n?/g, "\n").trimEnd();
+  return value;
+}
+
+function payloadHash(data) {
+  return createHash("sha256")
+    .update(JSON.stringify(normalizePayload(data)), "utf8")
+    .digest("hex");
+}
+
+function retryDelayMs(attempt, response) {
+  if (process.env.NODE_ENV === "test") return 0;
+  const retryAfter = response && response.headers && response.headers.get("retry-after");
+  if (retryAfter) {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds)) return Math.min(2000, Math.max(0, seconds * 1000));
+  }
+  return 200 + Math.floor(Math.random() * 150) + (attempt - 1) * 450;
+}
+
+function isRetryableStatus(status) {
+  return status === 429 || status >= 500;
+}
+
+async function fetchWithRetry(url, options, attempts, label) {
+  let lastResponse = null;
+  let lastError = null;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      lastResponse = await fetch(url, options);
+      if (lastResponse.ok || !isRetryableStatus(lastResponse.status) || attempt === attempts) {
+        return { response: lastResponse, error: null, attempts: attempt };
+      }
+    } catch (error) {
+      lastError = error;
+      if (attempt === attempts) break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, retryDelayMs(attempt, lastResponse)));
+  }
+  console.error(`${label} failed after ${attempts} attempts:`, lastError ? lastError.message : lastResponse?.status);
+  return { response: lastResponse, error: lastError, attempts };
+}
+
+async function postTaskComment(taskId, commentText, attempts, label) {
+  const result = await fetchWithRetry(`${CLICKUP_API_V2}/task/${taskId}/comment`, {
+    method: "POST",
+    headers: { Authorization: CLICKUP_TOKEN, "Content-Type": "application/json" },
+    body: JSON.stringify({ comment_text: commentText }),
+  }, attempts, label);
+  if (!result.response?.ok) {
+    console.error(`${label} rejected:`, result.response?.status || result.error?.message || "unknown error");
+    return false;
+  }
+  return true;
+}
+
 function formatDescription(data) {
   const optimizations = checkedItems(data, OPTIMIZATION_LABELS);
   const issues = checkedItems(data, ISSUE_LABELS);
@@ -281,7 +354,7 @@ function formatDescription(data) {
 
   lines.push("---");
   lines.push("");
-  lines.push(`_Submitted via LION form. Raw submission preserved as a comment below._`);
+  lines.push(`_Submitted via LION form. The recovery payload is preserved below and redundantly in a comment._`);
   lines.push(`_Numbers (sales, ACoS, TACoS, etc.) will be auto-appended by the data bot when wired up._`);
 
   return lines.join("\n");
@@ -308,13 +381,23 @@ exports.handler = async (event) => {
   const client = data.client || "Unknown Client";
   const weekEnding = data.week_ending || new Date().toISOString().slice(0, 10);
   const ppcPerson = data.ppc_person || "Unknown";
+  const taskName = `LION Report — ${client} — Week ending ${weekEnding}`;
+  const rawJson = JSON.stringify(data);
+  const description = `${formatDescription(data)}\n\n${RAW_START}\n${rawJson}\n${RAW_END}`;
+  const descriptionBytes = Buffer.byteLength(description, "utf8");
+  if (descriptionBytes > DESCRIPTION_LIMIT_BYTES) {
+    return {
+      statusCode: 413,
+      headers: corsHeaders(),
+      body: JSON.stringify({ error: "Submission is too large to save safely. Nothing was created; shorten the long text fields and try again." }),
+    };
+  }
+
   const routing = await loadRouting();
   const cfg = routing[client] || FALLBACK;
   const listId = cfg.list;
   const pmId = cfg.pm;
-
-  const taskName = `LION Report — ${client} — Week ending ${weekEnding}`;
-  const description = formatDescription(data);
+  const hash = payloadHash(data);
 
   // Due date = the first Monday on or after the report's week_ending.
   // PPC fills out Friday → PM reviews by Monday (Monday brief depends on it).
@@ -347,45 +430,49 @@ exports.handler = async (event) => {
     return { statusCode: 502, headers: corsHeaders(), body: JSON.stringify({ error: "Network error creating task: " + e.message }) };
   }
 
-  // 2. Add raw submission data as a comment (preserve forever)
-  try {
-    await fetch(`${CLICKUP_API_V2}/task/${task.id}/comment`, {
-      method: "POST",
-      headers: {
-        Authorization: CLICKUP_TOKEN,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        comment_text:
-          "RAW SUBMISSION DATA (preserved permanently):\n\n" +
-          "```\n" +
-          JSON.stringify(data, null, 2) +
-          "\n```",
-      }),
-    });
-  } catch (e) {
-    console.error("Comment post failed:", e.message);
-  }
+  // 2. Redundant human-visible raw comment. Recovery does not depend on this call: the exact
+  // payload is already inside the checked task-creation request above.
+  const rawCommentOk = await postTaskComment(task.id,
+    "RAW SUBMISSION DATA (redundant recovery copy):\n\n```\n" + JSON.stringify(data, null, 2) + "\n```",
+    3, "raw submission comment");
 
   // 2.5 Forward the submission to the ZBD Insights dashboard (2026-08-20, Sheralyn's request:
   // "automate the weekly LION Report as soon as they are submitted ... add them in ZBD Insights").
   // Non-fatal BY DESIGN: the ClickUp task above is the system of record — the dashboard must
   // never cost us a submission. Uses the same raw `data` object preserved in the task comment.
   let dashboardOk = false;
-  try {
-    if (process.env.ZBD_INSIGHTS_KEY) {
-      const zr = await fetch("https://zbd-insights.netlify.app/api/data", {
+  let dashboardResult = "pending";
+  if (process.env.ZBD_INSIGHTS_KEY && task.date_created) {
+    const forward = await fetchWithRetry("https://zbd-insights.netlify.app/api/data", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-app-pass": process.env.ZBD_INSIGHTS_KEY },
-        body: JSON.stringify({ op: "lion_submit", data, task_url: task.url }),
-      });
-      dashboardOk = zr.ok;
-      if (!zr.ok) console.error("ZBD Insights forward failed:", zr.status, await zr.text().catch(() => ""));
-    } else {
-      console.error("ZBD_INSIGHTS_KEY not set — dashboard forward skipped");
+        body: JSON.stringify({
+          op: "lion_submit",
+          data,
+          task_id: String(task.id),
+          task_url: task.url,
+          task_created_at: String(task.date_created),
+          payload_hash: hash,
+          hash_schema: HASH_SCHEMA,
+          ingest_mode: "live",
+        }),
+      }, 3, "ZBD Insights forward");
+    if (forward.response) {
+      const responseBody = await forward.response.json().catch(() => null);
+      dashboardOk = forward.response.ok && responseBody?.ok === true;
+      dashboardResult = responseBody?.result || (dashboardOk ? "accepted" : `http_${forward.response.status}`);
+      if (!dashboardOk) console.error("ZBD Insights forward rejected:", forward.response.status, responseBody?.error || "");
     }
-  } catch (e) {
-    console.error("ZBD Insights forward failed:", e.message);
+  } else {
+    console.error(process.env.ZBD_INSIGHTS_KEY
+      ? "ClickUp create response lacked date_created — dashboard forward deferred"
+      : "ZBD_INSIGHTS_KEY not set — dashboard forward skipped");
+  }
+
+  if (!dashboardOk) {
+    await postTaskComment(task.id,
+      "⚠️ DASHBOARD SYNC PENDING\n\nThis report is safely stored in this task, but its automatic copy to ZBD Insights did not complete. The reconciliation job should repair it; do not resubmit the form.",
+      1, "dashboard failure marker");
   }
 
   // 2.6 Carry open PM comments into THIS week's task (2026-08-21, Sheralyn's carry-over rule:
@@ -402,17 +489,12 @@ exports.handler = async (event) => {
         const cj = await cr.json();
         const open = (cj.comments || []).filter((c) => !c.resolved);
         if (open.length) {
-          await fetch(`${CLICKUP_API_V2}/task/${task.id}/comment`, {
-            method: "POST",
-            headers: { Authorization: CLICKUP_TOKEN, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              comment_text:
-                "⚠️ OPEN PM COMMENTS carried from previous weeks — address these, then mark them " +
-                "addressed on the ZBD Insights LION page (https://zbd-insights.netlify.app/#/lion) " +
-                "so they stop reappearing:\n\n" +
-                open.map((c) => `• [${c.createdWeek || "?"}] ${c.author}: ${c.text}`).join("\n"),
-            }),
-          });
+          await postTaskComment(task.id,
+            "⚠️ OPEN PM COMMENTS carried from previous weeks — address these, then mark them " +
+            "addressed on the ZBD Insights LION page (https://zbd-insights.netlify.app/#/lion) " +
+            "so they stop reappearing:\n\n" +
+            open.map((c) => `• [${c.createdWeek || "?"}] ${c.author}: ${c.text}`).join("\n"),
+            3, "carry-over comment");
         }
       }
     }
@@ -474,6 +556,9 @@ exports.handler = async (event) => {
       pmId,
       ppcPerson,
       client,
+      dashboardOk,
+      dashboardResult,
+      rawCommentOk,
     }),
   };
 };

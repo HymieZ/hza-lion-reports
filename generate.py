@@ -227,6 +227,8 @@ TEMPLATE = """<!DOCTYPE html>
   }}
   #success h2 {{ font-family: 'DM Serif Display', serif; font-size: 24px; margin-bottom: 8px; }}
   #success p {{ color: var(--text-muted); }}
+  #dashboardStatus {{ display: none; margin-top: 16px; padding: 12px; border-radius: 8px; }}
+  #dashboardStatus.pending {{ display: block; color: #fbbf24; background: rgba(251, 191, 36, 0.1); }}
   .error-message {{
     display: none; background: rgba(217, 79, 79, 0.1);
     border: 1px solid var(--danger); border-radius: 8px;
@@ -505,7 +507,8 @@ TEMPLATE = """<!DOCTYPE html>
   <div id="success">
     <div class="checkmark">✓</div>
     <h2>Submitted</h2>
-    <p>A new ClickUp task was created for review. The bot will append this week's data automatically when wired up.</p>
+    <p>A new ClickUp task was created for review.</p>
+    <p id="dashboardStatus"></p>
     <p style="margin-top: 16px;"><a id="taskLink" href="#" target="_blank" style="color: var(--accent-light); text-decoration: underline;">View the task in ClickUp →</a></p>
   </div>
 </div>
@@ -581,6 +584,11 @@ TEMPLATE = """<!DOCTYPE html>
       }}
       form.style.display = 'none';
       successBox.style.display = 'block';
+      if (!result.dashboardOk) {{
+        const dashboardStatus = document.getElementById('dashboardStatus');
+        dashboardStatus.className = 'pending';
+        dashboardStatus.textContent = 'Your report is safely saved in ClickUp. Dashboard sync is pending and will be repaired automatically — do not submit it again.';
+      }}
       if (result.taskUrl) {{
         document.getElementById('taskLink').href = result.taskUrl;
       }}
@@ -617,4 +625,3 @@ if __name__ == "__main__":
             f.write(generate_html(client))
         print(f"Generated: {filename}")
     print(f"\nGenerated {len(CLIENTS)} client forms.")
-

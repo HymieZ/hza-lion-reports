@@ -29,13 +29,18 @@ Netlify auto-deploys on push to main.
 
 ## Form submissions
 
-Submissions go to Netlify Forms (built-in). View them in the Netlify dashboard under Forms → `lion-report`.
+`netlify/functions/submit-lion.js` creates a ClickUp review task and immediately forwards the
+same submission to the ZBD Insights LION page. ClickUp is the recovery system of record; the
+dashboard copy is retriable and idempotent on `(client, week_ending)` with the ClickUp task ID
+as version provenance.
 
-A Make.com scenario will eventually subscribe to submissions and:
-1. Pull this week's API data for the client
-2. Generate the Weekly Performance commentary via Claude / GPT-4o-mini
-3. Append a new section to the existing LION Google Doc
-4. Post the link + summary to the Weekly LION Report ClickUp task
+The initial ClickUp task description contains a marked raw-JSON recovery block in the same
+checked create call. The function also posts a redundant raw comment, retries transient
+dashboard/comment failures, and returns success once the task exists even when dashboard sync
+is pending. In that case the form explicitly says not to resubmit, avoiding duplicate tasks.
+
+The current reliability design and reconciler contract live in the Obsidian vault at
+`00-Home/Skills/hza-forms-sync/lion-forwarding-reconciliation-design.md`.
 
 ## Color theme
 
