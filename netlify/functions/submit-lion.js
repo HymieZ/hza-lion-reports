@@ -7,12 +7,12 @@
 //   LION_INGEST_KEY - least-privilege ZBD Insights ingestion credential
 
 const { createHash } = require("node:crypto");
+const CLIENTS = require("../../config/lion-routing.json");
 
 const CLICKUP_TOKEN = process.env.CLICKUP_TOKEN;
 const CLICKUP_API_V2 = "https://api.clickup.com/api/v2";
 const CLICKUP_API_V3 = "https://api.clickup.com/api/v3";
 const WORKSPACE_ID = "9017107139";
-const HYMIE_USER_ID = 43731147;
 const RAW_START = "<!-- LION_RAW_V1_START -->";
 const RAW_END = "<!-- LION_RAW_V1_END -->";
 const DESCRIPTION_LIMIT_BYTES = 240 * 1024;
@@ -25,64 +25,9 @@ const LION_NOTIFICATIONS_CHANNEL_ID = "8cqc8p3-162237";
 const KRISTINA_ID = 89241104;
 const SHERALYN_ID = 95144395;
 
-// Per-client config: dedicated LION Reports list (created 2026-05-26) + PM (review assignee) + main internal channel.
-// LION submissions land in a per-client dedicated list, separate from the general PPC list.
-// Each list is named "LION Reports" inside the client's folder. PM tags PPC person in comments to discuss.
-// `channel` is the client's main internal ClickUp chat channel (from client-registry.json).
-// Walmart counterparts without dedicated channels reuse their Amazon channel.
-const CLIENTS_FALLBACK = {
-  "AllTech 365":             { list: "901714067256", pm: KRISTINA_ID, channel: "4-90171101286-8" },
-  "AP Deauville Amazon":     { list: "901714067258", pm: KRISTINA_ID, channel: "4-90170775261-8" },
-  "Balancing Act":           { list: "901714067259", pm: KRISTINA_ID, channel: "5-90176729151-8" },
-  "Eat2Explore":             { list: "901714067261", pm: KRISTINA_ID, channel: "4-90170967840-8" },
-  "Global Wholesale Amazon": { list: "901714067262", pm: SHERALYN_ID, channel: "4-90170775097-8" },
-  "IJoy Electronics":        { list: "901714067264", pm: SHERALYN_ID, channel: "5-90173726301-8" },
-  "Josmo Shoes":             { list: "901714067265", pm: KRISTINA_ID, channel: "5-90178337268-8" },
-  "Kaffy":                   { list: "901714067267", pm: KRISTINA_ID, channel: "5-90178257954-8" },
-  "Laundry Labs":            { list: "901714067269", pm: KRISTINA_ID, channel: "5-90178825997-8" },
-  "Louisiana Lumber":        { list: "901714067270", pm: SHERALYN_ID, channel: "4-90170775242-8" },
-  "Luxury Collection":       { list: "901714067272", pm: SHERALYN_ID, channel: "4-90170775251-8" },
-  "OX Plastics Amazon":      { list: "901714067273", pm: SHERALYN_ID, channel: "4-90170775258-8" },
-  "OX Plastic Walmart":      { list: "901714067274", pm: SHERALYN_ID, channel: "4-90170775258-8" }, // reuses Amazon channel
-  "Personalized Passion":    { list: "901714067276", pm: KRISTINA_ID, channel: "4-90171014580-8" },
-  "Rolling Pin":             { list: "901714067277", pm: KRISTINA_ID, channel: "5-90174894794-8" },
-  "Rubber Bond":             { list: "901714067278", pm: SHERALYN_ID, channel: "5-90176024611-8" },
-  "Savor Goods":             { list: "901714067280", pm: SHERALYN_ID, channel: "4-90170890034-8" },
-  "Savor Goods Walmart":     { list: "901714067283", pm: SHERALYN_ID, channel: "4-90170890034-8" }, // reuses Amazon channel
-  "Shalam Group":            { list: "901714067284", pm: KRISTINA_ID, channel: "4-90171062793-8" },
-  "Sophie Select":           { list: "901714067285", pm: KRISTINA_ID, channel: "5-90177096446-8" },
-  "Superior Products":       { list: "901714067286", pm: KRISTINA_ID, channel: "5-90178513854-8" },
-  "Wholesale Apparel":       { list: "901714067287", pm: KRISTINA_ID, channel: "5-90172690990-8" },
-  "Wild Bobby":              { list: "901714067291", pm: KRISTINA_ID, channel: "5-90178453011-8" },
-  "Galaxy by Harvic":        { list: "901714067293", pm: SHERALYN_ID, channel: "5-90176599383-8" },
-  "Silly George":            { list: "901714838438", pm: KRISTINA_ID },
-  "NEXGEL":                  { list: "901714838463", pm: KRISTINA_ID },
-  "Kenkoderm":               { list: "901714838493", pm: KRISTINA_ID },
-  "VytaDose":                { list: "901714873343", pm: KRISTINA_ID },
-  // Global Wholesale Walmart: TODO — folder ID not yet captured; LION list pending
-};
-
-// Fallback when client not yet mapped — lands in AllTech 365's LION list, assigned to Hymie for routing
-const FALLBACK = { list: "901714067256", pm: HYMIE_USER_ID };
-
-// Routing source of truth = /lion-routing.json (a static file deployed alongside forms).
-// New clients are wired in by deploying an updated JSON — the function code never changes.
-// If the fetch fails for any reason, we fall back to the embedded snapshot above so a
-// submission is never lost (worst case it lands in the Hymie fallback queue, as before).
-const ROUTING_URL = "https://hza-lion-reports.netlify.app/lion-routing.json";
-async function loadRouting() {
-  try {
-    const r = await fetch(ROUTING_URL, { headers: { "cache-control": "no-cache" } });
-    if (r.ok) {
-      const j = await r.json();
-      if (j && typeof j === "object" && Object.keys(j).length > 0) return j;
-    }
-    console.error("routing JSON unusable, using embedded fallback");
-  } catch (e) {
-    console.error("routing fetch failed, using embedded fallback:", e.message);
-  }
-  return CLIENTS_FALLBACK;
-}
+// Private routing source. Esbuild bundles this JSON into the function, so routing and function
+// code publish atomically in the same Git deploy. Unknown clients are rejected before ClickUp or
+// dashboard side effects; silently dropping them into another client's list is data corruption.
 
 
 const OPTIMIZATION_LABELS = {
@@ -394,8 +339,14 @@ exports.handler = async (event) => {
     };
   }
 
-  const routing = await loadRouting();
-  const cfg = routing[client] || FALLBACK;
+  const cfg = CLIENTS[client];
+  if (!cfg || !cfg.list || !cfg.pm) {
+    return {
+      statusCode: 422,
+      headers: corsHeaders(),
+      body: JSON.stringify({ error: "This client is not configured for LION submissions. Nothing was created; contact the operations owner." }),
+    };
+  }
   const listId = cfg.list;
   const pmId = cfg.pm;
   const hash = payloadHash(data);

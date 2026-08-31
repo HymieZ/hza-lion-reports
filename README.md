@@ -23,7 +23,9 @@ The form captures only the **human inputs** — the things the bot can't know:
 
 ## How to add a new client
 
-Edit `generate.py`, add the client name to the `CLIENTS` list, run `python3 generate.py`, commit, push.
+The scheduled `hza-forms-sync` function is the normal onboarding path. For a manual change, edit
+`generate.py`, add the client name to `CLIENTS`, add the reviewed list/PM/channel entry to
+`config/lion-routing.json`, regenerate, commit, and push.
 
 Netlify auto-deploys on push to main.
 
@@ -41,6 +43,11 @@ is pending. In that case the form explicitly says not to resubmit, avoiding dupl
 
 The current reliability design and reconciler contract live in the Obsidian vault at
 `00-Home/Skills/hza-forms-sync/lion-forwarding-reconciliation-design.md`.
+
+Routing is private configuration at `config/lion-routing.json` and is bundled into the function
+by esbuild. It is not served from the site and there is no embedded duplicate. A form whose client
+is not in routing is rejected before any ClickUp/dashboard side effect; never restore the old
+AllTech fallback, which could place one client's report in another client's list.
 
 Function secrets are `CLICKUP_TOKEN` and `LION_INGEST_KEY`. The latter is a dedicated machine
 credential accepted only by the dashboard's LION submit and carry-over-comment paths; do not

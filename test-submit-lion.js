@@ -17,7 +17,7 @@ function event(data) {
 
 function payload(overrides = {}) {
   return {
-    client: "Test Client",
+    client: "AllTech 365",
     week_ending: "2026-08-30",
     ppc_person: "Tester",
     week_summary: "A useful week",
@@ -42,16 +42,21 @@ test("oversized recovery description is rejected before any external call", asyn
   assert.equal(calls, 0);
 });
 
+test("unknown client is rejected before any external call", async () => {
+  let calls = 0;
+  global.fetch = async () => { calls += 1; throw new Error("must not be called"); };
+  const result = await handler(event(payload({ client: "Unconfigured Client" })));
+  assert.equal(result.statusCode, 422);
+  assert.equal(calls, 0);
+});
+
 test("task creation is atomic, redundant comment and dashboard retry, and provenance is forwarded", async () => {
   const calls = [];
   let rawCommentAttempts = 0;
   let dashboardAttempts = 0;
   global.fetch = async (url, options = {}) => {
     calls.push({ url: String(url), options });
-    if (String(url).endsWith("/lion-routing.json")) {
-      return jsonResponse({ "Test Client": { list: "list-1", pm: 123 } });
-    }
-    if (String(url).includes("/list/list-1/task")) {
+    if (String(url).includes("/list/901714067256/task")) {
       return jsonResponse({ id: "task-1", url: "https://app.clickup.com/t/task-1", date_created: "2000" });
     }
     if (String(url).includes("/task/task-1/comment")) {
@@ -86,7 +91,7 @@ test("task creation is atomic, redundant comment and dashboard retry, and proven
   assert.equal(rawCommentAttempts, 2);
   assert.equal(dashboardAttempts, 2);
 
-  const createCall = calls.find((call) => call.url.includes("/list/list-1/task"));
+  const createCall = calls.find((call) => call.url.includes("/list/901714067256/task"));
   const description = JSON.parse(createCall.options.body).description;
   assert.match(description, /<!-- LION_RAW_V1_START -->/);
   assert.match(description, /<!-- LION_RAW_V1_END -->/);
@@ -97,7 +102,7 @@ test("task creation is atomic, redundant comment and dashboard retry, and proven
   assert.equal(forwarded.task_id, "task-1");
   assert.equal(forwarded.task_created_at, "2000");
   assert.equal(forwarded.hash_schema, "lion-canonical-json-v1");
-  assert.equal(forwarded.payload_hash, "046a7ea6c3e94d8c33068609eae7dec7730d4345fddb196c6ca9c3880280859a");
+  assert.equal(forwarded.payload_hash, "c17ce298e4011dd786e7dabbce2d0a8d029e390bd0fbb555a774169a2c62c382");
   assert.equal(forwarded.ingest_mode, "live");
   assert.equal(dashboardCall.options.headers["x-lion-ingest-key"], "test-dashboard-key");
 });
@@ -105,10 +110,7 @@ test("task creation is atomic, redundant comment and dashboard retry, and proven
 test("dashboard rejection does not invite a duplicate task and leaves a failure marker", async () => {
   const comments = [];
   global.fetch = async (url, options = {}) => {
-    if (String(url).endsWith("/lion-routing.json")) {
-      return jsonResponse({ "Test Client": { list: "list-1", pm: 123 } });
-    }
-    if (String(url).includes("/list/list-1/task")) {
+    if (String(url).includes("/list/901714067256/task")) {
       return jsonResponse({ id: "task-2", url: "https://app.clickup.com/t/task-2", date_created: "3000" });
     }
     if (String(url).includes("/task/task-2/comment")) {
