@@ -1,5 +1,10 @@
+# publish is an ALLOWLIST, not the repo root (changed 2026-08-31).
+# It used to be "." which served every tracked file publicly — including
+# netlify/functions/submit-lion.js (the function's own source) and generate.py.
+# Only what belongs on the public web goes in public/. Anything added to the repo
+# root from now on is private by default, which is the safe direction.
 [build]
-  publish = "."
+  publish = "public"
   functions = "netlify/functions"
 
 [functions]

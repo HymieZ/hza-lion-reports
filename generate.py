@@ -606,7 +606,10 @@ def slugify_client(name):
 
 
 if __name__ == "__main__":
-    out_dir = os.path.dirname(os.path.abspath(__file__))
+    # Forms are published from public/ (2026-08-31). generate.py itself stays at the
+    # repo root and is deliberately NOT published — it used to be served to the world.
+    out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public")
+    os.makedirs(out_dir, exist_ok=True)
     for client in CLIENTS:
         filename = f"{slugify_client(client)}.html"
         filepath = os.path.join(out_dir, filename)
