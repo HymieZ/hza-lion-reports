@@ -16,6 +16,7 @@ CLIENTS = [
     "AP Deauville Amazon",
     "AllTech 365",
     "Balancing Act",
+    "Botanika Life",
     "Eat2Explore",
     "Footwear King",
     "Galaxy by Harvic",
